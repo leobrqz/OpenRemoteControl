@@ -29,6 +29,12 @@ if (-not (Test-Path -LiteralPath $sourceApk)) {
 
 Copy-Item -LiteralPath $sourceApk -Destination $destinationApk -Force
 
+$catalogPath = Join-Path $outputDirectory 'android-update.json'
+& (Join-Path $PSScriptRoot 'android_update_metadata.ps1') -ApkPath $destinationApk -CatalogPath $catalogPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Android update catalog generation failed with exit code $LASTEXITCODE."
+}
+
 $readmePath = Join-Path $outputDirectory 'README.md'
 $readme = @'
 # Android artifact
@@ -40,7 +46,9 @@ On first use, find the Windows PC on the same Wi-Fi and approve its pairing requ
 Generate the APK from the repository root with `./scripts/build_android.ps1`. Its SHA-256 checksum is in `SHA256SUMS.txt`.
 '@
 Set-Content -LiteralPath $readmePath -Value $readme -Encoding utf8
-$checksum = (Get-FileHash -LiteralPath $destinationApk -Algorithm SHA256).Hash
-Set-Content -LiteralPath (Join-Path $outputDirectory 'SHA256SUMS.txt') `
-    -Value "$checksum  $(Split-Path -Leaf $destinationApk)" -Encoding ascii
-Get-Item -LiteralPath $destinationApk, $readmePath, (Join-Path $outputDirectory 'SHA256SUMS.txt')
+$checksums = foreach ($artifact in @($destinationApk, $catalogPath)) {
+    "$((Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash)  $(Split-Path -Leaf $artifact)"
+}
+$checksumsPath = Join-Path $outputDirectory 'SHA256SUMS.txt'
+Set-Content -LiteralPath $checksumsPath -Value $checksums -Encoding ascii
+Get-Item -LiteralPath $destinationApk, $catalogPath, $readmePath, $checksumsPath

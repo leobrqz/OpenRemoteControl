@@ -28,7 +28,12 @@ try {
         if (-not $winHashes.ContainsKey($name)) { throw "Missing artifact checksum: $name" }
     }
     $apkName = 'OpenRemoteControl-Android-universal-release.apk'
-    if (-not $androidHashes.ContainsKey($apkName)) { throw 'Missing APK checksum.' }
+    $catalogName = 'android-update.json'
+    if (-not $androidHashes.ContainsKey($apkName) -or -not $androidHashes.ContainsKey($catalogName)) {
+        throw 'Android checksums must include both the APK and update catalog.'
+    }
+    & (Join-Path $PSScriptRoot 'android_update_metadata.ps1') `
+        -ApkPath (Join-Path $android $apkName) -CatalogPath (Join-Path $android $catalogName) -Validate
     $sdkLine = Get-Content -LiteralPath (Join-Path $root 'app/android/local.properties') | Where-Object { $_ -like 'sdk.dir=*' }
     $sdk = $sdkLine.Substring(8).Replace('\\','\')
     $tools = Get-ChildItem -LiteralPath (Join-Path $sdk 'build-tools') -Directory | Sort-Object Name -Descending | Select-Object -First 1
@@ -49,7 +54,7 @@ try {
     $previousCert = & (Join-Path $tools.FullName 'apksigner.bat') verify --print-certs (Join-Path $baseline $apkName)
     if ($LASTEXITCODE -ne 0 -or ($previousCert | Where-Object { $_ -like 'Signer #1 certificate SHA-256 digest:*' }) -ne
         ($cert | Where-Object { $_ -like 'Signer #1 certificate SHA-256 digest:*' })) { throw 'Android signing key changed.' }
-    if ($ValidateOnly) { Write-Output "Validated $Tag+$($product.Build), managed portable feed, checksums and APK signing continuity."; return }
+    if ($ValidateOnly) { Write-Output "Validated $Tag+$($product.Build), managed portable feed, checksums, Android update catalog and APK signing continuity."; return }
 
     $ErrorActionPreference = 'Continue'
     $existing = gh release view $Tag --json isDraft 2>$null
@@ -70,7 +75,7 @@ try {
     }
     git push origin main $Tag
     if ($LASTEXITCODE -ne 0) { throw 'Release commit/tag push failed.' }
-    $artifacts = @((Join-Path $android $apkName), (Join-Path $windows 'OpenRemoteControl-Windows-x64.zip'),
+    $artifacts = @((Join-Path $android $apkName), (Join-Path $android $catalogName), (Join-Path $windows 'OpenRemoteControl-Windows-x64.zip'),
         (Join-Path $windows $packageName), (Join-Path $windows 'releases.win-x64.json'))
     $sums = Join-Path $windows 'SHA256SUMS.txt'
     $lines = foreach ($path in $artifacts) { "$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)  $(Split-Path -Leaf $path)" }
@@ -100,6 +105,8 @@ try {
         }
     }
     Assert-Checksums $download | Out-Null
+    & (Join-Path $PSScriptRoot 'android_update_metadata.ps1') `
+        -ApkPath (Join-Path $download $apkName) -CatalogPath (Join-Path $download $catalogName) -Validate
     Assert-WindowsArtifacts $download $version $product.Build | Out-Null
     $remote = gh release view $Tag --json assets | ConvertFrom-Json
     if (@($remote.assets).Count -ne $artifacts.Count) { throw 'Unexpected release attachments; release remains draft.' }
