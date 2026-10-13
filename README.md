@@ -47,8 +47,11 @@ Packages and SHA-256 checksums are written to `output/windows/` and `output/andr
 | `web/src/` | Browser dashboard; `npm run build` in `web/` produces `web/dist/` |
 | `web/server/` | Windows background host, tray and native input integration |
 | `packages/remote_core/` | Shared Dart protocol, encryption and diagnostics |
+| `site/` | Static project website; `npm run dev` previews it locally |
 
 Android and Windows have separate dependencies and builds. The Windows ZIP includes the dashboard.
+
+Run `npm run dev` from `site/` to preview the website at `http://127.0.0.1:4173/`.
 
 ## Connect
 

@@ -13,6 +13,7 @@
 - `app/`: Android Flutter client with views, view models and repositories.
 - `web/src/`: HTML/JavaScript dashboard with Tailwind/DaisyUI and a Node.js asset build.
 - `web/server/`: Windows background host and tray, Dart services and C++/Win32 integration.
+- `site/`: standalone static project website and local preview server.
 - `packages/remote_core/`: shared Dart protocol, encryption and diagnostics.
 - `scripts/`: build, packaging and asset generation.
 - `output/android/` and `output/windows/`: generated distribution artifacts, ignored by Git.
