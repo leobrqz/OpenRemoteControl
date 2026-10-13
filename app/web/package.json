@@ -1,0 +1,13 @@
+{
+  "name": "open-remote-control-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tailwindcss -i ./dashboard.input.css -o ../assets/dashboard/dashboard.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "daisyui": "5.7.48",
+    "tailwindcss": "4.3.3"
+  }
+}

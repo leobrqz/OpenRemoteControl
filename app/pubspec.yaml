@@ -25,3 +25,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/tray_icon.ico
+    - assets/dashboard/index.html
+    - assets/dashboard/dashboard.css
+    - assets/dashboard/dashboard.js
+    - assets/dashboard/LICENSE.tailwindcss
+    - assets/dashboard/LICENSE.daisyui
+    - assets/dashboard/LICENSE.tailwindcss-cli

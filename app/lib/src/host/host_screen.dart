@@ -71,7 +71,6 @@ class _HostScreenState extends State<HostScreen>
           Menu(
             items: [
               MenuItem(key: 'open_dashboard', label: 'Abrir painel local'),
-              MenuItem(key: 'show_window', label: 'Mostrar aplicativo'),
               MenuItem.separator(),
               MenuItem(key: 'exit', label: 'Sair'),
             ],
@@ -87,11 +86,8 @@ class _HostScreenState extends State<HostScreen>
         );
       }
       await _service.start();
-      if (_service.isRunning && _trayReady) {
-        await _hideWindow();
-      } else {
-        await _showWindow();
-      }
+      await _hideWindow();
+      if (_service.isRunning && !_trayReady) unawaited(_openDashboard());
     } catch (error, stackTrace) {
       await DiagnosticLog.record(
         'Windows',
@@ -99,17 +95,9 @@ class _HostScreenState extends State<HostScreen>
         error: error,
         stackTrace: stackTrace,
       );
-      if (mounted) {
-        await _showWindow();
-        _showMessage(_service.lastError ?? error.toString());
-      }
+      if (_service.dashboardUrl != null) unawaited(_openDashboard());
+      await _hideWindow();
     }
-  }
-
-  Future<void> _showWindow() async {
-    await windowManager.setSkipTaskbar(false);
-    await windowManager.show();
-    await windowManager.focus();
   }
 
   Future<void> _hideWindow() async {
@@ -185,9 +173,6 @@ class _HostScreenState extends State<HostScreen>
     switch (menuItem.key) {
       case 'open_dashboard':
         unawaited(_openDashboard());
-        break;
-      case 'show_window':
-        unawaited(_showWindow());
         break;
       case 'exit':
         unawaited(_exitApplication());

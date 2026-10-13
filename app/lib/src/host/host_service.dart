@@ -190,9 +190,6 @@ class RemoteHostService extends ChangeNotifier {
         }
         await revokeClient(clientId);
         return;
-      case 'show_app':
-        await WindowsInput.showApplication();
-        return;
       default:
         throw const FormatException('Ação desconhecida no painel local.');
     }

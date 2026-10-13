@@ -5,8 +5,25 @@ $appDirectory = Join-Path $workspaceRoot 'app'
 $outputDirectory = Join-Path $workspaceRoot 'output\windows'
 $releaseDirectory = Join-Path $appDirectory 'build\windows\x64\runner\Release'
 $archivePath = Join-Path $outputDirectory 'OpenRemoteControl-Windows-x64.zip'
+$webDirectory = Join-Path $appDirectory 'web'
 
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
+Push-Location $webDirectory
+try {
+    & npm ci --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) {
+        throw "Dashboard dependency installation failed with exit code $LASTEXITCODE."
+    }
+
+    & npm run build
+    if ($LASTEXITCODE -ne 0) {
+        throw "Dashboard asset build failed with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    Pop-Location
+}
+
 Push-Location $appDirectory
 try {
     & flutter pub get
@@ -34,9 +51,9 @@ $readme = @'
 # Windows artifact
 
 Extract `OpenRemoteControl-Windows-x64.zip` and run `open_remote_control.exe`.
-The server starts automatically and stays in the Windows notification area. Double-click the tray icon to open the localhost dashboard; right-click it to show the app or exit.
+The server starts automatically and stays in the Windows notification area. Double-click the tray icon to open the dashboard in your browser; right-click it to open the dashboard or exit.
 
-Open the Android app and approve its first pairing request in the dashboard. If Windows Firewall asks, allow the app on the network profile currently in use. Discovery uses UDP 47653 and control uses TCP 47652.
+Open the Android app and approve its first pairing request in the dashboard. Discovery uses UDP 47653 and control uses TCP 47652.
 
 Windows diagnostics are saved to `%LOCALAPPDATA%\OpenRemoteControl\logs\open-remote.log`. The SHA-256 checksum for the ZIP is in `SHA256SUMS.txt`.
 '@
