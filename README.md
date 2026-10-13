@@ -27,7 +27,7 @@ The Android menu includes saved mouse, connection, theme and display settings.
 
 ## Build
 
-On Windows, install Flutter, the Android SDK, Node.js and Visual Studio's **Desktop development with C++** workload. From the repository root:
+On Windows, install Flutter, the Android SDK, Node.js, the .NET SDK (build only) and Visual Studio's **Desktop development with C++** workload. Velopack SDK and CLI are pinned to 1.2.161. From the repository root:
 
 ```powershell
 .\scripts\build_windows.ps1
@@ -49,6 +49,8 @@ Android and Windows have separate dependencies and builds. The Windows ZIP inclu
 
 ## Connect
 
-1. Extract the Windows ZIP and run `open_remote_control.exe`. Double-click its tray icon to open the dashboard in your browser.
+1. Extract the Windows ZIP into a user-writable directory and run its root `Open Remote Control.exe` launcher. Double-click its tray icon to open the dashboard in your browser.
 2. Install the Android APK and connect both devices to the same local network.
 3. Select the discovered PC and approve the phone in the dashboard, or scan the pairing QR. Access is saved for future connections.
+
+Windows checks for updates after startup; approve downloading and restarting under **Sobre > Atualizações** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
