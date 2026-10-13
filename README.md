@@ -1,11 +1,13 @@
 <p align="center">
+  <a href="https://openremotecontrol.sourceforge.io/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="app/assets/branding/mark-light.svg">
     <img src="app/assets/branding/mark.svg" width="64" height="64" alt="Open Remote Control logo">
   </picture>
+  </a>
 </p>
 
-<h1 align="center">Open Remote Control</h1>
+<h1 align="center"><a href="https://openremotecontrol.sourceforge.io/">Open Remote Control</a></h1>
 
 <p align="center">Use your Android phone as a mouse, keyboard and media remote for Windows.</p>
 
