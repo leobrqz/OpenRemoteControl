@@ -757,7 +757,7 @@ class RemoteClientService extends ChangeNotifier {
     try {
       while (await iterator.moveNext()) {
         final frame = iterator.current;
-        final message = await session.decrypt(_decodeFrame(frame));
+        final message = await session.decryptWireFrame(frame);
         if (message['kind'] == 'close') break;
       }
     } catch (error, stackTrace) {

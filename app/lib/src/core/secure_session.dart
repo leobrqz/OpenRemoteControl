@@ -112,6 +112,9 @@ class SecureSession {
     return decoded;
   }
 
+  Future<Map<String, dynamic>> decryptWireFrame(Object? frame) =>
+      decrypt(decodeWireMap(frame));
+
   static Uint8List _nonce(int sequence, String direction) {
     final nonce = Uint8List(12);
     nonce[0] = direction == 'client-to-server' ? 0x43 : 0x53;

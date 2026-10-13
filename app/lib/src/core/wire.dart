@@ -5,6 +5,18 @@ import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 
 const int localDiscoveryPort = 47653;
+const int maxWireFrameCharacters = 8192;
+
+Map<String, dynamic> decodeWireMap(Object? frame) {
+  if (frame is! String || frame.length > maxWireFrameCharacters) {
+    throw const FormatException('Quadro de rede invÃ¡lido.');
+  }
+  final decoded = jsonDecode(frame);
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('Quadro JSON invÃ¡lido.');
+  }
+  return decoded;
+}
 
 String encodeBytes(List<int> bytes) =>
     base64Url.encode(bytes).replaceAll('=', '');
