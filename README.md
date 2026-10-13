@@ -63,3 +63,5 @@ Run `npm run dev` from `site/` to preview the website at `http://127.0.0.1:4173/
 
 Windows checks for updates after startup; approve downloading and restarting under **Sobre > Atualizações** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
 Keep the managed directory in place: updates retain the executable path and its existing Windows Firewall authorization.
+
+Android checks for compatible updates on startup and in **Sobre > Atualizações**. Downloads require approval, can continue in the background, and can be cancelled. Android asks for installation permission and confirmation; updating preserves saved PCs and settings. Google Play and a Google account are not required.

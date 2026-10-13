@@ -144,6 +144,8 @@ void main() {
     await tester.tap(find.text('Sobre'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Site oficial'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Site oficial'));
     await tester.pumpAndSettle();
     expect(

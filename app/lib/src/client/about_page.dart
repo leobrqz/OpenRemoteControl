@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'about_service.dart';
+import 'updates/android_update_card.dart';
+import 'updates/android_update_controller.dart';
 
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key, this.service, required this.enabled});
+  const AboutPage({
+    super.key,
+    this.service,
+    this.updates,
+    required this.enabled,
+  });
 
   final AboutService? service;
   final bool enabled;
+  final AndroidUpdateController? updates;
 
   @override
   State<AboutPage> createState() => _AboutPageState();
@@ -104,6 +112,10 @@ class _AboutPageState extends State<AboutPage> {
             ],
           ),
         ),
+        if (widget.updates != null) ...[
+          const SizedBox(height: 12),
+          AndroidUpdateCard(controller: widget.updates!),
+        ],
         const SizedBox(height: 12),
         Text('Projeto', style: Theme.of(context).textTheme.titleMedium),
         _link(

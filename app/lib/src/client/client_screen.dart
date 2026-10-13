@@ -15,6 +15,8 @@ import 'manual_connection_dialog.dart';
 import 'pairing_scanner_screen.dart';
 import 'preferences/client_preferences.dart';
 import 'preferences/settings_page.dart';
+import 'updates/android_update_card.dart';
+import 'updates/android_update_controller.dart';
 
 import 'client_view_model.dart';
 
@@ -24,10 +26,12 @@ class ClientScreen extends StatefulWidget {
     required this.preferences,
     this.service,
     this.aboutService,
+    this.updates,
   });
   final PreferencesController preferences;
   final RemoteClientService? service;
   final AboutService? aboutService;
+  final AndroidUpdateController? updates;
   @override
   State<ClientScreen> createState() => _ClientScreenState();
 }
@@ -38,6 +42,7 @@ class _ClientScreenState extends State<ClientScreen>
     preferences: widget.preferences,
     service: widget.service,
   );
+  late final _updates = widget.updates ?? AndroidUpdateController();
   ClientNotice? _lastNotice;
   RemoteClientService get _service => _model.service;
   RemoteActions get _actions => _model.actions;
@@ -54,6 +59,7 @@ class _ClientScreenState extends State<ClientScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _model.addListener(_showNotice);
+    unawaited(_updates.initialize());
   }
 
   void _showNotice() {
@@ -69,13 +75,19 @@ class _ClientScreenState extends State<ClientScreen>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) =>
-      _model.onLifecycleStateChanged(state);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _model.onLifecycleStateChanged(state);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_updates.refreshNativeState());
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _model.removeListener(_showNotice);
     _model.dispose();
+    if (widget.updates == null) _updates.dispose();
     super.dispose();
   }
 
@@ -265,34 +277,48 @@ class _ClientScreenState extends State<ClientScreen>
         ),
         body: SafeArea(
           top: false,
-          child: IndexedStack(
-            index: _destination.index,
+          child: Column(
             children: [
-              ComputersPage(
-                service: _service,
-                savedHosts: _savedHosts,
-                loading: _loadingHosts,
-                showErrors: _preferences.showConnectionErrors,
-                onConnectSaved: (host) => unawaited(_model.connectSaved(host)),
-                onConnectDiscovered: (host) =>
-                    unawaited(_model.connectDiscovered(host)),
-                onOpenControls: () => _select(
-                  ClientDestination.controls,
-                  _preferences.defaultControl,
+              if (_destination != ClientDestination.about)
+                AndroidUpdateNotice(
+                  controller: _updates,
+                  onDetails: () => _select(ClientDestination.about, null),
                 ),
-                onForget: (host) => unawaited(_forget(host)),
-                onAdd: _manual,
-              ),
-              _service.hasSession ? _controls() : const SizedBox.shrink(),
-              SettingsPage(
-                preferences: widget.preferences,
-                onComputers: () => _select(ClientDestination.computers, null),
-                onTestMouse: _model.testMouse,
-                onDiagnostics: () => unawaited(_model.copyDiagnostics()),
-              ),
-              AboutPage(
-                enabled: _destination == ClientDestination.about,
-                service: widget.aboutService,
+              Expanded(
+                child: IndexedStack(
+                  index: _destination.index,
+                  children: [
+                    ComputersPage(
+                      service: _service,
+                      savedHosts: _savedHosts,
+                      loading: _loadingHosts,
+                      showErrors: _preferences.showConnectionErrors,
+                      onConnectSaved: (host) =>
+                          unawaited(_model.connectSaved(host)),
+                      onConnectDiscovered: (host) =>
+                          unawaited(_model.connectDiscovered(host)),
+                      onOpenControls: () => _select(
+                        ClientDestination.controls,
+                        _preferences.defaultControl,
+                      ),
+                      onForget: (host) => unawaited(_forget(host)),
+                      onAdd: _manual,
+                    ),
+                    _service.hasSession ? _controls() : const SizedBox.shrink(),
+                    SettingsPage(
+                      preferences: widget.preferences,
+                      onComputers: () =>
+                          _select(ClientDestination.computers, null),
+                      onTestMouse: _model.testMouse,
+                      onDiagnostics: () => unawaited(_model.copyDiagnostics()),
+                    ),
+                    AboutPage(
+                      enabled: _destination == ClientDestination.about,
+                      service: widget.aboutService,
+                      updates: _updates,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -320,7 +346,7 @@ class _ClientScreenState extends State<ClientScreen>
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _model,
+    listenable: Listenable.merge([_model, _updates]),
     builder: (context, _) => _buildShell(context),
   );
 }
