@@ -79,9 +79,15 @@ class SecureSession {
   Future<Map<String, dynamic>> decrypt(Object? frame) async {
     if (frame is! Map<String, dynamic> ||
         frame['type'] != 'secure' ||
-        frame['version'] != 1 ||
-        frame['sequence'] != _nextReceiveSequence) {
+        frame['version'] != 1) {
       throw const FormatException('Sequência de sessão inválida.');
+    }
+    final receivedSequence = frame['sequence'];
+    if (receivedSequence is! int || receivedSequence != _nextReceiveSequence) {
+      throw FormatException(
+        'Sequência de sessão inválida: recebida $receivedSequence, '
+        'esperada $_nextReceiveSequence.',
+      );
     }
     final sequence = _nextReceiveSequence;
     final cipherText = decodeBytes(frame['cipherText']);

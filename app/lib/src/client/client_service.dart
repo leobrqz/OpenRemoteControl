@@ -45,11 +45,13 @@ class RemoteClientService extends ChangeNotifier {
   bool _isResolvingManual = false;
   bool _isDiscovering = false;
   String? _connectedAddress;
+  SavedHost? _lastConnectedHost;
   String? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
   bool _disposed = false;
 
   bool get isConnected => _socket != null;
+  bool get hasSession => _lastConnectedHost != null;
   bool get isConnecting => _isConnecting || _isResolvingManual;
   bool get isDiscovering => _isDiscovering;
   List<DiscoveredHost> get discoveredHosts => _discoveredHosts;
@@ -388,7 +390,14 @@ class RemoteClientService extends ChangeNotifier {
       pairingToken: '',
       profile: profile,
       requestApproval: false,
+      serverName: host.name,
     );
+  }
+
+  Future<void> reconnect() async {
+    final host = _lastConnectedHost;
+    if (host == null || _isConnecting) return;
+    await connectSaved(host);
   }
 
   Future<void> connectDiscovered(DiscoveredHost host) async {
@@ -438,7 +447,7 @@ class RemoteClientService extends ChangeNotifier {
     String serverName = 'PC Windows',
   }) async {
     if (_isConnecting) return;
-    await disconnect();
+    await disconnect(clearSession: false);
     _isConnecting = true;
     _lastError = null;
     _notifyListeners();
@@ -463,6 +472,13 @@ class RemoteClientService extends ChangeNotifier {
             serverName: serverName,
           );
           _connectedAddress = address;
+          _lastConnectedHost = SavedHost(
+            serverId: serverId,
+            name: serverName,
+            addresses: addresses.where(isPrivateIpv4).toList(growable: false),
+            port: port,
+            signingPublicKey: signingPublicKey,
+          );
           await DiagnosticLog.record(
             'Android',
             'Conexão segura estabelecida com $address:$port.',
@@ -498,7 +514,7 @@ class RemoteClientService extends ChangeNotifier {
         error: error,
         stackTrace: stackTrace,
       );
-      await disconnect();
+      await disconnect(clearSession: false);
       rethrow;
     } finally {
       _isConnecting = false;
@@ -678,11 +694,21 @@ class RemoteClientService extends ChangeNotifier {
     if (socket == null || session == null) {
       return Future<void>.error(StateError('Nenhum PC está conectado.'));
     }
-    _sendQueue = _sendQueue.then((_) async {
+    final operation = _sendQueue.then((_) async {
       if (_socket != socket || socket.readyState != WebSocket.open) return;
       socket.add(jsonEncode(await session.encrypt(command)));
     });
-    return _sendQueue;
+    _sendQueue = operation.catchError((Object error, StackTrace stackTrace) {
+      unawaited(
+        DiagnosticLog.record(
+          'Android',
+          'Falha enviando comando ao PC.',
+          error: error,
+          stackTrace: stackTrace,
+        ),
+      );
+    });
+    return operation;
   }
 
   Future<void> sendMouseMove(double dx, double dy) =>
@@ -706,11 +732,15 @@ class RemoteClientService extends ChangeNotifier {
   Future<void> sendMedia(String action) =>
       send({'kind': 'media.command', 'action': action});
 
-  Future<void> disconnect() async {
+  Future<void> disconnect({bool clearSession = true}) async {
     final iterator = _iterator;
     _iterator = null;
     _session = null;
-    _connectedAddress = null;
+    if (clearSession) {
+      _connectedAddress = null;
+      _lastConnectedHost = null;
+      _lastError = null;
+    }
     final socket = _socket;
     _socket = null;
     await iterator?.cancel();
@@ -723,20 +753,29 @@ class RemoteClientService extends ChangeNotifier {
     StreamIterator<Object?> iterator,
     SecureSession session,
   ) async {
+    Object? disconnectReason;
     try {
       while (await iterator.moveNext()) {
         final frame = iterator.current;
         final message = await session.decrypt(_decodeFrame(frame));
         if (message['kind'] == 'close') break;
       }
-    } catch (_) {
-      // Socket teardown is reflected by the connection status below.
+    } catch (error, stackTrace) {
+      disconnectReason = error;
+      await DiagnosticLog.record(
+        'Android',
+        'Conexão segura encerrada pelo servidor.',
+        error: error,
+        stackTrace: stackTrace,
+      );
     } finally {
       if (_socket == socket) {
         _socket = null;
         _iterator = null;
         _session = null;
-        _connectedAddress = null;
+        _lastError = disconnectReason == null
+            ? 'O PC encerrou a conexão.'
+            : 'Conexão perdida: $disconnectReason';
         _notifyListeners();
       }
       await iterator.cancel();

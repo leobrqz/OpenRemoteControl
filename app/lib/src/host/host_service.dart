@@ -597,6 +597,7 @@ class RemoteHostService extends ChangeNotifier {
         ),
       );
 
+      phase = 'comandos';
       while (await iterator.moveNext()) {
         final frame = iterator.current;
         final command = await session.decrypt(frame);

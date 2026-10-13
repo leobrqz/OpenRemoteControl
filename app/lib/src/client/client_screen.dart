@@ -146,7 +146,7 @@ class _ClientScreenState extends State<ClientScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_service.isConnected) {
+    if (_service.isConnected || _service.hasSession) {
       return RemoteControlScreen(service: _service);
     }
     final width = MediaQuery.sizeOf(context).width;
@@ -467,12 +467,41 @@ class _RemoteControlScreenState extends State<RemoteControlScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: IndexedStack(
-          index: _selectedPage,
+        child: Column(
           children: [
-            _MouseControl(send: _send, service: service),
-            _MediaControl(send: _send, service: service),
-            _KeyboardControl(send: _send, service: service),
+            if (!service.isConnected)
+              MaterialBanner(
+                leading: const Icon(Icons.wifi_off_rounded),
+                content: Text(
+                  service.isConnecting
+                      ? 'Reconectando ao PC…'
+                      : service.lastError ?? 'Conexão perdida.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: service.isConnecting
+                        ? null
+                        : () => unawaited(
+                            service.reconnect().catchError((Object _) {}),
+                          ),
+                    child: const Text('Reconectar'),
+                  ),
+                  TextButton(
+                    onPressed: () => unawaited(service.disconnect()),
+                    child: const Text('Sair'),
+                  ),
+                ],
+              ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedPage,
+                children: [
+                  _MouseControl(send: _send, service: service),
+                  _MediaControl(send: _send, service: service),
+                  _KeyboardControl(send: _send, service: service),
+                ],
+              ),
+            ),
           ],
         ),
       ),
