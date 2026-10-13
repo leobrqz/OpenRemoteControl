@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'src/client/client_screen.dart';
+import 'src/client/preferences/client_preferences.dart';
 import 'src/host/host_background.dart';
 
 Future<void> main() async {
@@ -10,62 +11,62 @@ Future<void> main() async {
     runApp(const HostBackground());
     return;
   }
-  runApp(const OpenRemoteApp());
+  final preferences = PreferencesController();
+  await preferences.load();
+  runApp(OpenRemoteApp(preferences: preferences));
 }
 
 class OpenRemoteApp extends StatelessWidget {
-  const OpenRemoteApp({super.key});
+  const OpenRemoteApp({super.key, required this.preferences});
+  final PreferencesController preferences;
 
-  static const _background = Color(0xFF101719);
-  static const _surface = Color(0xFF182225);
-  static const _mint = Color(0xFF77E4D3);
-
-  @override
-  Widget build(BuildContext context) {
+  static ThemeData _theme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
-      seedColor: _mint,
-      brightness: Brightness.dark,
-      surface: _surface,
+      seedColor: const Color(0xFF348C28),
+      brightness: brightness,
+      primary: dark ? const Color(0xFF77E4D3) : const Color(0xFF287621),
+      surface: dark ? const Color(0xFF182225) : const Color(0xFFF9FAF8),
     );
-    return MaterialApp(
-      title: 'Open Remote Control',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: scheme,
-        scaffoldBackgroundColor: _background,
-        cardTheme: CardThemeData(
-          color: _surface,
-          elevation: 0,
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: dark
+          ? const Color(0xFF101719)
+          : const Color(0xFFF9FAF8),
+      appBarTheme: const AppBarTheme(centerTitle: false),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: const BorderSide(color: Color(0xFF293639)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF182225),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF344244)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF344244)),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: _mint,
-            foregroundColor: _background,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
-      home: const ClientScreen(),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: preferences,
+    builder: (context, _) => MaterialApp(
+      title: 'Open Remote',
+      debugShowCheckedModeBanner: false,
+      theme: _theme(Brightness.light),
+      darkTheme: _theme(Brightness.dark),
+      themeMode: preferences.value.themeMode,
+      home: ClientScreen(preferences: preferences),
+    ),
+  );
 }

@@ -2,1176 +2,591 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/diagnostic_log.dart';
 import '../core/wire.dart';
+import 'client_drawer.dart';
 import 'client_service.dart';
+import 'computers_page.dart';
+import 'controls/keyboard_control.dart';
+import 'controls/media_control.dart';
+import 'controls/mouse_control.dart';
+import 'controls/remote_actions.dart';
+import 'manual_connection_dialog.dart';
+import 'pairing_scanner_screen.dart';
+import 'preferences/client_platform.dart';
+import 'preferences/client_preferences.dart';
+import 'preferences/settings_page.dart';
 
 class ClientScreen extends StatefulWidget {
-  const ClientScreen({super.key});
-
+  const ClientScreen({super.key, required this.preferences, this.service});
+  final PreferencesController preferences;
+  final RemoteClientService? service;
   @override
   State<ClientScreen> createState() => _ClientScreenState();
 }
 
-class _ClientScreenState extends State<ClientScreen> {
-  final RemoteClientService _service = RemoteClientService();
-  List<SavedHost> _savedHosts = const [];
-  bool _loadingHosts = true;
-  Timer? _discoveryTimer;
-  final TextEditingController _manualAddressController =
-      TextEditingController();
-  final TextEditingController _manualPortController = TextEditingController(
-    text: '47652',
+class _ClientScreenState extends State<ClientScreen>
+    with WidgetsBindingObserver {
+  late final _service = widget.service ?? RemoteClientService();
+  late final _actions = RemoteActions(
+    send: _service.send,
+    preferences: () => widget.preferences.value,
+    connected: () => _service.isConnected,
+    onError: (error) => _message(error.toString(), error: true),
   );
+  List<SavedHost> _savedHosts = const [];
+  bool _loadingHosts = true,
+      _foreground = true,
+      _connecting = false,
+      _retrying = false;
+  ClientDestination _destination = ClientDestination.computers;
+  late ControlPage _control = widget.preferences.value.defaultControl;
+  Timer? _discoveryTimer, _reconnectTimer;
+  Future<void>? _discovery;
+  int _retryAttempt = 0;
+  Object? _displayState, _backgroundState;
+  Future<void> _platformQueue = Future<void>.value();
+  ClientPreferences get _preferences => widget.preferences.value;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _service.addListener(_refresh);
+    widget.preferences.addListener(_preferencesChanged);
     unawaited(_loadHosts());
-    unawaited(_loadManualEndpoint());
-    unawaited(_discoverHosts());
-    _discoveryTimer = Timer.periodic(const Duration(seconds: 6), (_) {
-      unawaited(_discoverHosts());
+    if (_preferences.automaticDiscovery) unawaited(_discover());
+    _discoveryTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (_foreground &&
+          _preferences.automaticDiscovery &&
+          !_service.isConnected) {
+        unawaited(_discover());
+      }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPlatform());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _service.removeListener(_refresh);
+    widget.preferences.removeListener(_preferencesChanged);
     _discoveryTimer?.cancel();
-    _manualAddressController.dispose();
-    _manualPortController.dispose();
-    _service.dispose();
+    _reconnectTimer?.cancel();
+    _actions.dispose();
+    unawaited(
+      ClientPlatform.setBackgroundConnection(
+        false,
+        null,
+      ).catchError((Object _) {}),
+    );
+    if (widget.service == null) _service.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (!_foreground) _actions.releaseAll();
+    if (_foreground) {
+      if (_preferences.automaticDiscovery && !_service.isConnected) {
+        unawaited(_discover());
+      }
+      _scheduleReconnect();
+    } else if (!_preferences.keepConnectionInBackground) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+    }
+    _syncPlatform();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _refresh() {
+    if (!mounted) return;
+    if (!_service.isConnected) _actions.releaseAll();
+    if (!_service.hasSession && _destination == ClientDestination.controls) {
+      _destination = ClientDestination.computers;
+    }
+    if (_service.isConnected || !_service.hasSession) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+      _retryAttempt = 0;
+    } else {
+      _scheduleReconnect();
+    }
+    _syncPlatform();
+    setState(() {});
+  }
+
+  void _preferencesChanged() {
+    if (!_preferences.visibleControls.contains(_control)) {
+      _control = _preferences.defaultControl;
+    }
+    if (!_preferences.autoReconnect) {
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+    } else {
+      _scheduleReconnect();
+    }
+    _syncPlatform();
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadHosts() async {
-    final hosts = await _service.loadSavedHosts();
+  void _syncPlatform() {
     if (!mounted) return;
-    setState(() {
-      _savedHosts = hosts;
-      _loadingHosts = false;
-    });
-  }
-
-  Future<void> _loadManualEndpoint() async {
-    final endpoint = await _service.loadManualEndpoint();
-    if (!mounted || endpoint == null) return;
-    _manualAddressController.text = endpoint['address'] as String;
-    _manualPortController.text = '${endpoint['port']}';
-  }
-
-  Future<void> _discoverHosts({bool showError = false}) async {
-    if (_service.isDiscovering ||
-        _service.isConnecting ||
-        _service.isConnected) {
-      return;
+    final p = _preferences;
+    final controlling =
+        _foreground &&
+        _destination == ClientDestination.controls &&
+        _service.isConnected;
+    final display = (
+      p.orientation,
+      p.fullscreen,
+      p.keepScreenAwake && controlling,
+    );
+    final keepBackground =
+        p.keepConnectionInBackground &&
+        (_service.isConnected || (p.autoReconnect && _service.hasSession));
+    final background = (keepBackground, _service.connectedAddress);
+    if (display != _displayState) {
+      _displayState = display;
+      _platformQueue = _platformQueue
+          .then((_) => ClientPlatform.applyDisplay(p, controlling: controlling))
+          .catchError((Object error, StackTrace stack) async {
+            _displayState = null;
+            await DiagnosticLog.record(
+              'Android',
+              'Falha ao aplicar opções de tela.',
+              error: error,
+              stackTrace: stack,
+            );
+          });
     }
+    if (background != _backgroundState) {
+      _backgroundState = background;
+      _platformQueue = _platformQueue
+          .then(
+            (_) => ClientPlatform.setBackgroundConnection(
+              keepBackground,
+              background.$2,
+            ),
+          )
+          .catchError((Object error, StackTrace stack) async {
+            _backgroundState = null;
+            await DiagnosticLog.record(
+              'Android',
+              'Falha ao manter conexão em segundo plano.',
+              error: error,
+              stackTrace: stack,
+            );
+            if (mounted && keepBackground) {
+              await widget.preferences.update(
+                _preferences.copyWith(keepConnectionInBackground: false),
+              );
+              _message(
+                'Não foi possível manter a conexão em segundo plano.',
+                error: true,
+              );
+            }
+          });
+    }
+  }
+
+  Future<void> _loadHosts() async {
     try {
-      await _service.discoverHosts();
+      final hosts = await _service.loadSavedHosts();
+      if (mounted) {
+        setState(() {
+          _savedHosts = hosts;
+          _loadingHosts = false;
+        });
+      }
     } catch (error) {
-      if (showError && mounted) {
-        _showMessage('Falha ao procurar PCs na rede: $error');
+      if (mounted) {
+        setState(() => _loadingHosts = false);
+        _message(
+          'Não foi possível ler os computadores salvos: $error',
+          error: true,
+        );
       }
     }
   }
 
-  Future<void> _scanAndConnect() async {
-    final rawValue = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _PairingScannerScreen()),
-    );
-    if (rawValue == null || !mounted) return;
+  Future<void> _discover({bool showError = false}) {
+    if (_discovery != null) return _discovery!;
+    if (_service.isConnecting || _connecting || _service.isConnected) {
+      return Future<void>.value();
+    }
+    final operation = _performDiscovery(showError);
+    _discovery = operation;
+    return operation.whenComplete(() => _discovery = null);
+  }
+
+  Future<void> _performDiscovery(bool showError) async {
     try {
-      final pairing = PairingInfo.fromQr(rawValue);
-      await _service.connectFromQr(pairing);
-      await _loadHosts();
+      await _service.discoverHosts();
+      if (_preferences.updateServerAddress) {
+        await _service.updateDiscoveredAddresses();
+        await _loadHosts();
+      }
     } catch (error) {
-      if (mounted) _showMessage(_service.lastError ?? error.toString());
+      if (showError) {
+        _message('Falha ao procurar computadores: $error', error: true);
+      }
     }
   }
 
-  Future<void> _connectSaved(SavedHost host) async {
-    try {
-      await _service.connectSaved(host);
-    } catch (error) {
-      if (mounted) _showMessage(_service.lastError ?? error.toString());
-    }
-  }
-
-  Future<void> _connectDiscovered(DiscoveredHost host) async {
-    try {
-      await _service.connectDiscovered(host);
-      await _loadHosts();
-    } catch (error) {
-      if (mounted) _showMessage(_service.lastError ?? error.toString());
-    }
-  }
-
-  Future<void> _connectManual() async {
-    final port = int.tryParse(_manualPortController.text.trim());
-    if (port == null) {
-      _showMessage('Digite uma porta válida. O padrão é 47652.');
+  void _scheduleReconnect() {
+    if (!mounted ||
+        !_preferences.autoReconnect ||
+        !_service.hasSession ||
+        _service.isConnected ||
+        _service.isConnecting ||
+        _connecting ||
+        _retrying ||
+        _reconnectTimer != null ||
+        (!_foreground && !_preferences.keepConnectionInBackground)) {
       return;
     }
+    final delay = [1, 2, 4, 8, 15, 30][_retryAttempt.clamp(0, 5)];
+    _reconnectTimer = Timer(Duration(seconds: delay), () {
+      _reconnectTimer = null;
+      unawaited(_reconnect(automatic: true));
+    });
+  }
+
+  Future<void> _reconnect({bool automatic = false}) async {
+    if (_retrying ||
+        _service.isConnected ||
+        _service.isConnecting ||
+        !_service.hasSession) {
+      return;
+    }
+    _retrying = true;
     try {
-      await _service.connectManual(
-        address: _manualAddressController.text,
-        port: port,
-      );
+      if (_preferences.updateServerAddress) await _discover();
+      if (!_service.hasSession ||
+          !mounted ||
+          (automatic && !_preferences.autoReconnect) ||
+          (!_foreground && !_preferences.keepConnectionInBackground)) {
+        return;
+      }
+      await _service.reconnect();
+    } catch (_) {
+      _retryAttempt++;
+    } finally {
+      _retrying = false;
+      _scheduleReconnect();
+    }
+  }
+
+  Future<void> _connect(Future<void> Function() operation) async {
+    if (_service.isConnecting || _connecting || _retrying) return;
+    _connecting = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    try {
+      await _discovery;
+      await operation();
+      if (!mounted || !_service.isConnected) return;
+      _select(ClientDestination.controls, _preferences.defaultControl);
       await _loadHosts();
     } catch (error) {
-      if (mounted) _showMessage(_service.lastError ?? error.toString());
+      _message(_service.lastError ?? error.toString(), error: true);
+    } finally {
+      _connecting = false;
+      _scheduleReconnect();
     }
   }
 
-  Future<void> _copyDiagnostics() async {
+  Future<void> _scan() async {
+    final raw = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const PairingScannerScreen()),
+    );
+    if (raw == null || !mounted) return;
+    try {
+      final pairing = PairingInfo.fromQr(raw);
+      await _connect(() => _service.connectFromQr(pairing));
+    } catch (error) {
+      _message(error.toString(), error: true);
+    }
+  }
+
+  Future<void> _manual() async {
+    ManualEndpoint? initial;
+    try {
+      final saved = await _service.loadManualEndpoint();
+      if (saved != null) {
+        initial = (
+          address: saved['address'] as String,
+          port: saved['port'] as int,
+        );
+      }
+    } catch (_) {
+      /* A missing saved endpoint does not prevent manual entry. */
+    }
+    if (!mounted) return;
+    final endpoint = await showDialog<ManualEndpoint>(
+      context: context,
+      builder: (_) => ManualConnectionDialog(initial: initial),
+    );
+    if (endpoint != null) {
+      await _connect(
+        () => _service.connectManual(
+          address: endpoint.address,
+          port: endpoint.port,
+        ),
+      );
+    }
+  }
+
+  Future<void> _forget(SavedHost host) async {
+    final forget = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Esquecer ${host.name}?'),
+        content: const Text(
+          'Será necessário autorizar este celular novamente para conectar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Esquecer'),
+          ),
+        ],
+      ),
+    );
+    if (forget != true) return;
+    try {
+      await _service.forgetHost(host.serverId);
+      await _loadHosts();
+    } catch (error) {
+      _message('Não foi possível esquecer o computador: $error', error: true);
+    }
+  }
+
+  Future<void> _diagnostics() async {
     await Clipboard.setData(ClipboardData(text: await DiagnosticLog.export()));
-    if (mounted) {
-      _showMessage('Diagnóstico copiado para a área de transferência.');
-    }
+    _message('Diagnóstico copiado.');
   }
 
-  void _showMessage(String message) {
+  void _message(String message, {bool error = false}) {
+    if (!mounted || (error && !_preferences.showConnectionErrors)) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_service.isConnected || _service.hasSession) {
-      return RemoteControlScreen(service: _service);
-    }
-    final width = MediaQuery.sizeOf(context).width;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                width < 600 ? 22 : 36,
-                28,
-                width < 600 ? 22 : 36,
-                32,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _ClientHeader(),
-                  const SizedBox(height: 46),
-                  Text(
-                    'Controle seu PC\npelo Wi‑Fi.',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -1.2,
-                      height: 1.06,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Pareie com o servidor Windows e controle mouse, teclado e mídia no mesmo ambiente de rede.',
-                    style: TextStyle(
-                      color: Color(0xFF9BAEAE),
-                      height: 1.5,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.wifi_find_rounded,
-                                color: Color(0xFF77E4D3),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                _service.isConnecting
-                                    ? 'Conectando ao computador…'
-                                    : _service.isDiscovering
-                                    ? 'Procurando PCs na rede Wi-Fi...'
-                                    : 'Nenhum PC conectado',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'O app procura automaticamente PCs com o servidor ativo neste Wi-Fi.',
-                            style: TextStyle(
-                              color: Color(0xFF9BAEAE),
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          if (_service.discoveredHosts.isEmpty)
-                            Text(
-                              _service.isDiscovering
-                                  ? 'Buscando computadores...'
-                                  : 'Inicie o servidor no Windows para ele aparecer aqui.',
-                              style: const TextStyle(
-                                color: Color(0xFF9BAEAE),
-                                height: 1.45,
-                              ),
-                            )
-                          else ...[
-                            Text(
-                              'COMPUTADORES ENCONTRADOS',
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(
-                                    color: const Color(0xFF77E4D3),
-                                    letterSpacing: 1.0,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            ..._service.discoveredHosts.map((host) {
-                              final paired = _savedHosts.any(
-                                (saved) => saved.serverId == host.serverId,
-                              );
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(
-                                  Icons.desktop_windows_rounded,
-                                  color: Color(0xFF77E4D3),
-                                ),
-                                title: Text(host.name),
-                                subtitle: Text(
-                                  paired
-                                      ? 'Pareado  •  ${host.addresses.first}'
-                                      : 'O Windows pedira aprovacao',
-                                ),
-                                trailing: FilledButton.tonal(
-                                  onPressed: _service.isConnecting
-                                      ? null
-                                      : () => _connectDiscovered(host),
-                                  child: Text(
-                                    paired ? 'Conectar' : 'Solicitar',
-                                  ),
-                                ),
-                              );
-                            }),
-                          ],
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: IconButton(
-                              tooltip: 'Procurar novamente',
-                              onPressed:
-                                  _service.isConnecting ||
-                                      _service.isDiscovering
-                                  ? null
-                                  : () => _discoverHosts(showError: true),
-                              icon: const Icon(Icons.refresh_rounded),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _service.isConnecting
-                                  ? null
-                                  : _scanAndConnect,
-                              icon: const Icon(Icons.qr_code_scanner_rounded),
-                              label: const Text('Escanear QR do servidor'),
-                            ),
-                          ),
-                          if (_service.lastError != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _service.lastError!,
-                              style: const TextStyle(
-                                color: Color(0xFFFFA79B),
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: ExpansionTile(
-                      leading: const Icon(Icons.tune_rounded),
-                      title: const Text('Conectar por IP local'),
-                      subtitle: const Text(
-                        'Configuração manual; porta padrão 47652.',
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                controller: _manualAddressController,
-                                keyboardType: TextInputType.url,
-                                textInputAction: TextInputAction.next,
-                                decoration: const InputDecoration(
-                                  labelText: 'IP do Windows',
-                                  hintText: '192.168.1.20',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: _manualPortController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Porta',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _service.isConnecting
-                                ? null
-                                : _connectManual,
-                            icon: const Icon(Icons.link_rounded),
-                            label: const Text('Conectar ao Windows'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_savedHosts.isNotEmpty) ...[
-                    const SizedBox(height: 22),
-                    Text(
-                      'COMPUTADORES PAREADOS',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: const Color(0xFF77E4D3),
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._savedHosts.map(
-                      (host) => Card(
-                        child: ListTile(
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFF1D3A36),
-                            child: Icon(
-                              Icons.desktop_windows_rounded,
-                              color: Color(0xFF77E4D3),
-                            ),
-                          ),
-                          title: Text(host.name),
-                          subtitle: Text(host.addresses.join('  •  ')),
-                          trailing: IconButton.filledTonal(
-                            tooltip: 'Conectar',
-                            onPressed: _service.isConnecting
-                                ? null
-                                : () => _connectSaved(host),
-                            icon: const Icon(Icons.arrow_forward_rounded),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ] else if (_loadingHosts) ...[
-                    const SizedBox(height: 22),
-                    const Center(
-                      child: SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  const _ClientFeatureStrip(),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: _copyDiagnostics,
-                      icon: const Icon(Icons.bug_report_outlined),
-                      label: const Text('Copiar diagnóstico de conexão'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class RemoteControlScreen extends StatefulWidget {
-  const RemoteControlScreen({super.key, required this.service});
-
-  final RemoteClientService service;
-
-  @override
-  State<RemoteControlScreen> createState() => _RemoteControlScreenState();
-}
-
-class _RemoteControlScreenState extends State<RemoteControlScreen> {
-  int _selectedPage = 0;
-
-  void _send(Future<void> operation) {
-    unawaited(operation.catchError((Object _) {}));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final service = widget.service;
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            const Icon(
-              Icons.desktop_windows_rounded,
-              color: Color(0xFF77E4D3),
-              size: 19,
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                service.connectedAddress == null
-                    ? 'PC conectado'
-                    : 'PC • ${service.connectedAddress}',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Desconectar',
-            onPressed: service.disconnect,
-            icon: const Icon(Icons.link_off_rounded),
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            if (!service.isConnected)
-              MaterialBanner(
-                leading: const Icon(Icons.wifi_off_rounded),
-                content: Text(
-                  service.isConnecting
-                      ? 'Reconectando ao PC…'
-                      : service.lastError ?? 'Conexão perdida.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: service.isConnecting
-                        ? null
-                        : () => unawaited(
-                            service.reconnect().catchError((Object _) {}),
-                          ),
-                    child: const Text('Reconectar'),
-                  ),
-                  TextButton(
-                    onPressed: () => unawaited(service.disconnect()),
-                    child: const Text('Sair'),
-                  ),
-                ],
-              ),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedPage,
-                children: [
-                  _MouseControl(send: _send, service: service),
-                  _MediaControl(send: _send, service: service),
-                  _KeyboardControl(send: _send, service: service),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedPage,
-        onDestinationSelected: (index) => setState(() => _selectedPage = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.touch_app_outlined),
-            selectedIcon: Icon(Icons.touch_app_rounded),
-            label: 'Mouse',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.graphic_eq_outlined),
-            selectedIcon: Icon(Icons.graphic_eq_rounded),
-            label: 'Mídia',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.keyboard_outlined),
-            selectedIcon: Icon(Icons.keyboard_rounded),
-            label: 'Teclado',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-typedef _SendOperation = void Function(Future<void> operation);
-
-class _MouseControl extends StatefulWidget {
-  const _MouseControl({required this.send, required this.service});
-
-  final _SendOperation send;
-  final RemoteClientService service;
-
-  @override
-  State<_MouseControl> createState() => _MouseControlState();
-}
-
-class _MouseControlState extends State<_MouseControl> {
-  bool _dragMode = false;
-  bool _dragging = false;
-
-  void _startDrag() {
-    if (!_dragMode || _dragging) return;
-    _dragging = true;
-    widget.send(widget.service.sendMouseButton('left', true));
-  }
-
-  void _endDrag() {
-    if (!_dragging) return;
-    _dragging = false;
-    widget.send(widget.service.sendMouseButton('left', false));
-  }
-
-  @override
-  void dispose() {
-    _endDrag();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      child: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onPanStart: (_) => _startDrag(),
-              onPanUpdate: (details) => widget.send(
-                widget.service.sendMouseMove(
-                  details.delta.dx * 1.55,
-                  details.delta.dy * 1.55,
-                ),
-              ),
-              onPanEnd: (_) => _endDrag(),
-              onPanCancel: _endDrag,
-              onTap: () => _click(widget.service, widget.send, 'left'),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF182225),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: const Color(0xFF344244)),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.touch_app_rounded,
-                      color: Color(0xFF77E4D3),
-                      size: 36,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _dragMode
-                          ? 'Arraste para mover e selecionar'
-                          : 'Deslize para mover o cursor',
-                      style: const TextStyle(color: Color(0xFFB6C4C2)),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Toque para clicar',
-                      style: TextStyle(color: Color(0xFF718584), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilterChip(
-              avatar: const Icon(Icons.drag_indicator_rounded, size: 18),
-              label: const Text('Arrastar para selecionar'),
-              selected: _dragMode,
-              onSelected: (selected) {
-                if (!selected) _endDrag();
-                setState(() => _dragMode = selected);
-              },
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: _MouseButton(
-                  icon: Icons.mouse_rounded,
-                  label: 'Esquerdo',
-                  onPressed: () => _click(widget.service, widget.send, 'left'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MouseButton(
-                  icon: Icons.mouse_rounded,
-                  label: 'Direito',
-                  onPressed: () => _click(widget.service, widget.send, 'right'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 180,
-            child: _MouseButton(
-              icon: Icons.mouse_rounded,
-              label: 'Meio',
-              onPressed: () => _click(widget.service, widget.send, 'middle'),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => widget.send(widget.service.sendScroll(120)),
-                  icon: const Icon(Icons.keyboard_arrow_up_rounded),
-                  label: const Text('Rolar para cima'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => widget.send(widget.service.sendScroll(-120)),
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                  label: const Text('Rolar para baixo'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static void _click(
-    RemoteClientService service,
-    _SendOperation send,
-    String button,
-  ) {
-    send(service.sendMouseButton(button, true));
-    send(service.sendMouseButton(button, false));
-  }
-}
-
-class _MouseButton extends StatelessWidget {
-  const _MouseButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => FilledButton.tonalIcon(
-    onPressed: onPressed,
-    icon: Icon(icon, size: 18),
-    label: Text(label),
-  );
-}
-
-class _MediaControl extends StatelessWidget {
-  const _MediaControl({required this.send, required this.service});
-
-  final _SendOperation send;
-  final RemoteClientService service;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          const SizedBox(height: 18),
-          Text(
-            'Controles de mídia',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Volume e reprodução no computador',
-            style: TextStyle(color: Color(0xFF9BAEAE)),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _MediaButton(
-                icon: Icons.volume_down_rounded,
-                label: 'Diminuir',
-                onPressed: () => send(service.sendMedia('volumeDown')),
-              ),
-              const SizedBox(width: 18),
-              _MediaButton(
-                icon: Icons.volume_off_rounded,
-                label: 'Mudo',
-                onPressed: () => send(service.sendMedia('volumeMute')),
-              ),
-              const SizedBox(width: 18),
-              _MediaButton(
-                icon: Icons.volume_up_rounded,
-                label: 'Aumentar',
-                onPressed: () => send(service.sendMedia('volumeUp')),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _MediaButton(
-                icon: Icons.skip_previous_rounded,
-                label: 'Anterior',
-                onPressed: () => send(service.sendMedia('previousTrack')),
-              ),
-              const SizedBox(width: 26),
-              _MediaButton(
-                icon: Icons.play_arrow_rounded,
-                label: 'Pausar / tocar',
-                prominent: true,
-                onPressed: () => send(service.sendMedia('playPause')),
-              ),
-              const SizedBox(width: 26),
-              _MediaButton(
-                icon: Icons.skip_next_rounded,
-                label: 'Próxima',
-                onPressed: () => send(service.sendMedia('nextTrack')),
-              ),
-            ],
-          ),
-          const Spacer(),
-          const Text(
-            'Os comandos são enviados como teclas de mídia do Windows.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF718584), fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-}
-
-class _MediaButton extends StatelessWidget {
-  const _MediaButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.prominent = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool prominent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton.filledTonal(
-          onPressed: onPressed,
-          iconSize: prominent ? 36 : 28,
-          padding: EdgeInsets.all(prominent ? 20 : 15),
-          icon: Icon(icon),
-          style: prominent
-              ? IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF77E4D3),
-                  foregroundColor: const Color(0xFF101719),
-                )
-              : null,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Color(0xFF9BAEAE), fontSize: 12),
-        ),
-      ],
-    );
-  }
-}
-
-class _KeyboardControl extends StatefulWidget {
-  const _KeyboardControl({required this.send, required this.service});
-
-  final _SendOperation send;
-  final RemoteClientService service;
-
-  @override
-  State<_KeyboardControl> createState() => _KeyboardControlState();
-}
-
-class _KeyboardControlState extends State<_KeyboardControl> {
-  final TextEditingController _controller = TextEditingController();
-  final Set<String> _activeModifiers = {};
-
-  @override
-  void dispose() {
-    for (final modifier in _activeModifiers) {
-      widget.send(widget.service.sendModifier(modifier, false));
-    }
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _sendText() {
-    final text = _controller.text;
-    if (text.isEmpty) return;
-    widget.send(widget.service.sendText(text));
-    _controller.clear();
-  }
-
-  void _setModifier(String key, bool pressed) {
+  void _select(ClientDestination destination, ControlPage? control) {
+    _actions.releaseAll();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
-      if (pressed) {
-        _activeModifiers.add(key);
-      } else {
-        _activeModifiers.remove(key);
-      }
+      _destination = destination;
+      if (control != null) _control = control;
     });
-    widget.send(widget.service.sendModifier(key, pressed));
+    _syncPlatform();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 28, 18, 28),
+  Widget _controls() {
+    final active =
+        _destination == ClientDestination.controls &&
+        _foreground &&
+        _service.isConnected;
+    return Column(
       children: [
-        Text(
-          'Enviar texto',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Digite no celular e envie o texto para a janela ativa no Windows.',
-          style: TextStyle(color: Color(0xFF9BAEAE), height: 1.4),
-        ),
-        const SizedBox(height: 18),
-        const Text(
-          'Mantenha um modificador ativo e toque numa tecla para atalhos.',
-          style: TextStyle(color: Color(0xFF9BAEAE), height: 1.4),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 9,
-          runSpacing: 8,
-          children: [
-            _ModifierChip(
-              label: 'Ctrl',
-              selected: _activeModifiers.contains('control'),
-              onSelected: (pressed) => _setModifier('control', pressed),
-            ),
-            _ModifierChip(
-              label: 'Alt',
-              selected: _activeModifiers.contains('alt'),
-              onSelected: (pressed) => _setModifier('alt', pressed),
-            ),
-            _ModifierChip(
-              label: 'Shift',
-              selected: _activeModifiers.contains('shift'),
-              onSelected: (pressed) => _setModifier('shift', pressed),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendText(),
-                decoration: const InputDecoration(
-                  hintText: 'Digite aqui…',
-                  prefixIcon: Icon(Icons.keyboard_rounded),
+        if (!_service.isConnected)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_service.isConnecting) const LinearProgressIndicator(),
+                Text(
+                  _service.isConnecting
+                      ? 'Reconectando…'
+                      : _preferences.showConnectionErrors
+                      ? _service.lastError ?? 'Desconectado'
+                      : 'Desconectado',
                 ),
-              ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: _service.isConnecting || _retrying
+                          ? null
+                          : _reconnect,
+                      child: const Text('Reconectar'),
+                    ),
+                    TextButton(
+                      onPressed: _service.disconnect,
+                      child: const Text('Desconectar'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            IconButton.filled(
-              tooltip: 'Enviar texto',
-              onPressed: _sendText,
-              icon: const Icon(Icons.send_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 26),
-        Text(
-          'TECLAS RÁPIDAS',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: const Color(0xFF77E4D3),
-            letterSpacing: 1.1,
-            fontWeight: FontWeight.w700,
           ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 9,
-          runSpacing: 9,
-          children: [
-            _KeyChip('Enter', 'enter', widget.send, widget.service),
-            _KeyChip('Backspace', 'backspace', widget.send, widget.service),
-            _KeyChip('Tab', 'tab', widget.send, widget.service),
-            _KeyChip('Esc', 'escape', widget.send, widget.service),
-            _KeyChip('Espaço', 'space', widget.send, widget.service),
-            _KeyChip('←', 'arrowLeft', widget.send, widget.service),
-            _KeyChip('↑', 'arrowUp', widget.send, widget.service),
-            _KeyChip('↓', 'arrowDown', widget.send, widget.service),
-            _KeyChip('→', 'arrowRight', widget.send, widget.service),
-            _KeyChip('Delete', 'delete', widget.send, widget.service),
-            _KeyChip('Home', 'home', widget.send, widget.service),
-            _KeyChip('End', 'end', widget.send, widget.service),
-            _KeyChip('PgUp', 'pageUp', widget.send, widget.service),
-            _KeyChip('PgDn', 'pageDown', widget.send, widget.service),
-            _KeyChip('Insert', 'insert', widget.send, widget.service),
-            _KeyChip('Caps', 'capsLock', widget.send, widget.service),
-            ...List.generate(12, (index) {
-              final number = index + 1;
-              return _KeyChip(
-                'F$number',
-                'f$number',
-                widget.send,
-                widget.service,
-              );
-            }),
-            ...List.generate(26, (index) {
-              final keyName = String.fromCharCode(0x61 + index);
-              return _KeyChip(
-                keyName.toUpperCase(),
-                keyName,
-                widget.send,
-                widget.service,
-              );
-            }),
-            ...List.generate(10, (index) {
-              final keyName = index.toString();
-              return _KeyChip(keyName, keyName, widget.send, widget.service);
-            }),
-          ],
+        Expanded(
+          child: IndexedStack(
+            index: _control.index,
+            children: [
+              MouseControl(
+                actions: _actions,
+                preferences: _preferences,
+                active: active && _control == ControlPage.mouse,
+              ),
+              MediaControl(
+                actions: _actions,
+                active: active && _control == ControlPage.media,
+              ),
+              KeyboardControl(
+                actions: _actions,
+                active: active && _control == ControlPage.keyboard,
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
-}
-
-class _ModifierChip extends StatelessWidget {
-  const _ModifierChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) => FilterChip(
-    label: Text(label),
-    selected: selected,
-    onSelected: onSelected,
-  );
-}
-
-class _KeyChip extends StatelessWidget {
-  const _KeyChip(this.label, this.keyName, this.send, this.service);
-
-  final String label;
-  final String keyName;
-  final _SendOperation send;
-  final RemoteClientService service;
-
-  @override
-  Widget build(BuildContext context) => ActionChip(
-    label: Text(label),
-    onPressed: () => send(service.sendKey(keyName)),
-  );
-}
-
-class _ClientHeader extends StatelessWidget {
-  const _ClientHeader();
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Image.asset(
-            'assets/branding/mark.png',
-            excludeFromSemantics: true,
-          ),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Text(
-        'Open Remote',
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
-      const Spacer(),
-      const _ClientChip(label: 'ANDROID'),
-    ],
-  );
-}
-
-class _ClientFeatureStrip extends StatelessWidget {
-  const _ClientFeatureStrip();
-
-  @override
-  Widget build(BuildContext context) => const Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      _ClientChip(label: 'MOUSE'),
-      _ClientChip(label: 'TECLADO'),
-      _ClientChip(label: 'VOLUME'),
-      _ClientChip(label: 'MÍDIA'),
-      _ClientChip(label: 'SEM BLUETOOTH'),
-    ],
-  );
-}
-
-class _ClientChip extends StatelessWidget {
-  const _ClientChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: const Color(0xFF202A2C),
-      borderRadius: BorderRadius.circular(100),
-      border: Border.all(color: const Color(0xFF344244)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF9BAEAE),
-          fontSize: 10,
-          letterSpacing: 0.7,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    ),
-  );
-}
-
-class _PairingScannerScreen extends StatefulWidget {
-  const _PairingScannerScreen();
-
-  @override
-  State<_PairingScannerScreen> createState() => _PairingScannerScreenState();
-}
-
-class _PairingScannerScreenState extends State<_PairingScannerScreen> {
-  bool _didScan = false;
-
-  void _onDetect(BarcodeCapture capture) {
-    if (_didScan) return;
-    final raw = capture.barcodes
-        .map((barcode) => barcode.rawValue)
-        .whereType<String>()
-        .firstWhere((value) => value.startsWith('{'), orElse: () => '');
-    if (raw.isEmpty) return;
-    _didScan = true;
-    Navigator.of(context).pop(raw);
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Parear com o Windows')),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          MobileScanner(onDetect: _onDetect),
-          IgnorePointer(
-            child: Center(
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF77E4D3), width: 3),
-                  borderRadius: BorderRadius.circular(28),
-                ),
-              ),
-            ),
+    final controls = ControlPage.values
+        .where(_preferences.visibleControls.contains)
+        .toList();
+    return PopScope(
+      canPop: _destination == ClientDestination.computers,
+      onPopInvokedWithResult: (popped, _) {
+        if (!popped) _select(ClientDestination.computers, null);
+      },
+      child: Scaffold(
+        drawerEnableOpenDragGesture: _preferences.swipeToOpenMenu,
+        drawer: ClientDrawer(
+          destination: _destination,
+          control: _control,
+          preferences: _preferences,
+          hasSession: _service.hasSession,
+          select: (destination, control) {
+            Navigator.pop(context);
+            _select(destination, control);
+          },
+        ),
+        appBar: AppBar(
+          title: Text(
+            switch (_destination) {
+              ClientDestination.computers => 'Computadores',
+              ClientDestination.settings => 'Configurações',
+              ClientDestination.controls =>
+                '${_control.label} · ${_service.currentHost?.name ?? 'PC'}',
+            },
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          Positioned(
-            left: 28,
-            right: 28,
-            bottom: 30,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xE6101719),
-                borderRadius: BorderRadius.circular(16),
+          actions: [
+            if (_destination == ClientDestination.computers) ...[
+              IconButton(
+                tooltip: 'Procurar computadores',
+                onPressed: _service.isDiscovering || _service.isConnecting
+                    ? null
+                    : () => _discover(showError: true),
+                icon: const Icon(Icons.refresh),
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'Aponte a câmera para o QR que aparece no servidor Windows.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(height: 1.4),
+              PopupMenuButton<String>(
+                tooltip: 'Adicionar computador',
+                enabled: !_service.isConnecting,
+                icon: const Icon(Icons.add),
+                onSelected: (choice) =>
+                    choice == 'qr' ? unawaited(_scan()) : unawaited(_manual()),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'qr', child: Text('Escanear QR')),
+                  PopupMenuItem(value: 'ip', child: Text('Conectar por IP')),
+                ],
+              ),
+            ],
+            if (_destination == ClientDestination.controls)
+              IconButton(
+                tooltip: 'Desconectar',
+                onPressed: _service.disconnect,
+                icon: const Icon(Icons.link_off_rounded),
+              ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: IndexedStack(
+            index: _destination.index,
+            children: [
+              ComputersPage(
+                service: _service,
+                savedHosts: _savedHosts,
+                loading: _loadingHosts,
+                showErrors: _preferences.showConnectionErrors,
+                onConnectSaved: (host) =>
+                    unawaited(_connect(() => _service.connectSaved(host))),
+                onConnectDiscovered: (host) =>
+                    unawaited(_connect(() => _service.connectDiscovered(host))),
+                onOpenControls: () => _select(
+                  ClientDestination.controls,
+                  _preferences.defaultControl,
                 ),
+                onForget: (host) => unawaited(_forget(host)),
+                onAdd: _manual,
               ),
-            ),
+              _service.hasSession ? _controls() : const SizedBox.shrink(),
+              SettingsPage(
+                preferences: widget.preferences,
+                onComputers: () => _select(ClientDestination.computers, null),
+                onTestMouse: () {
+                  if (_service.hasSession) {
+                    if (!_preferences.visibleControls.contains(
+                      ControlPage.mouse,
+                    )) {
+                      unawaited(
+                        widget.preferences.update(
+                          _preferences.copyWith(
+                            visibleControls: {
+                              ..._preferences.visibleControls,
+                              ControlPage.mouse,
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                    _select(ClientDestination.controls, ControlPage.mouse);
+                  } else {
+                    _message('Conecte a um computador para testar o mouse.');
+                  }
+                },
+                onDiagnostics: () => unawaited(_diagnostics()),
+              ),
+            ],
           ),
-        ],
+        ),
+        bottomNavigationBar:
+            _destination == ClientDestination.controls &&
+                _preferences.controlLayout == ControlLayout.tabs &&
+                controls.length > 1
+            ? NavigationBar(
+                selectedIndex: controls.indexOf(_control),
+                onDestinationSelected: (index) =>
+                    _select(ClientDestination.controls, controls[index]),
+                destinations: [
+                  for (final page in controls)
+                    NavigationDestination(
+                      icon: Icon(page.icon),
+                      label: page.label,
+                    ),
+                ],
+              )
+            : null,
       ),
     );
   }

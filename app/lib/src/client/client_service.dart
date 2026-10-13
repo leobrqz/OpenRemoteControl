@@ -38,6 +38,7 @@ class RemoteClientService extends ChangeNotifier {
   final Ed25519 _signatures = Ed25519();
 
   WebSocket? _socket;
+  WebSocket? _pendingSocket;
   StreamIterator<Object?>? _iterator;
   SecureSession? _session;
   Future<void> _sendQueue = Future<void>.value();
@@ -49,6 +50,7 @@ class RemoteClientService extends ChangeNotifier {
   String? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
   bool _disposed = false;
+  int _connectionGeneration = 0;
 
   bool get isConnected => _socket != null;
   bool get hasSession => _lastConnectedHost != null;
@@ -57,6 +59,31 @@ class RemoteClientService extends ChangeNotifier {
   List<DiscoveredHost> get discoveredHosts => _discoveredHosts;
   String? get connectedAddress => _connectedAddress;
   String? get lastError => _lastError;
+  SavedHost? get currentHost => _lastConnectedHost;
+
+  Future<void> forgetHost(String serverId) async {
+    final profiles = await _readProfiles();
+    profiles.remove(serverId);
+    await _writeProfiles(profiles);
+    if (_lastConnectedHost?.serverId == serverId) await disconnect();
+  }
+
+  Future<void> updateDiscoveredAddresses() async {
+    final profiles = await _readProfiles();
+    var changed = false;
+    for (final host in _discoveredHosts) {
+      final profile = profiles[host.serverId];
+      if (profile == null ||
+          profile['signingPublicKey'] != host.signingPublicKey) {
+        continue;
+      }
+      profile['addresses'] = host.addresses;
+      profile['port'] = host.port;
+      profile['name'] = host.name;
+      changed = true;
+    }
+    if (changed) await _writeProfiles(profiles);
+  }
 
   Future<List<DiscoveredHost>> discoverHosts() async {
     if (_isDiscovering) return _discoveredHosts;
@@ -384,8 +411,13 @@ class RemoteClientService extends ChangeNotifier {
     }
     await _connect(
       serverId: host.serverId,
-      addresses: host.addresses,
-      port: host.port,
+      addresses:
+          (profile['addresses'] as List?)
+              ?.whereType<String>()
+              .where(isPrivateIpv4)
+              .toList() ??
+          host.addresses,
+      port: profile['port'] is int ? profile['port'] as int : host.port,
       signingPublicKey: host.signingPublicKey,
       pairingToken: '',
       profile: profile,
@@ -447,12 +479,16 @@ class RemoteClientService extends ChangeNotifier {
     String serverName = 'PC Windows',
   }) async {
     if (_isConnecting) return;
-    await disconnect(clearSession: false);
     _isConnecting = true;
+    final generation = ++_connectionGeneration;
+    await disconnect(clearSession: false);
     _lastError = null;
     _notifyListeners();
     final failures = <String>[];
     try {
+      if (generation != _connectionGeneration || _disposed) {
+        throw const _ConnectionCancelled();
+      }
       await _ensureLocalNetworkPermission();
       for (final address in addresses.where(isPrivateIpv4)) {
         try {
@@ -470,6 +506,7 @@ class RemoteClientService extends ChangeNotifier {
             profile: profile,
             requestApproval: requestApproval,
             serverName: serverName,
+            generation: generation,
           );
           _connectedAddress = address;
           _lastConnectedHost = SavedHost(
@@ -484,6 +521,10 @@ class RemoteClientService extends ChangeNotifier {
             'Conexão segura estabelecida com $address:$port.',
           );
           return;
+        } on _ConnectionCancelled {
+          rethrow;
+        } on _SavedAuthorizationRejected {
+          rethrow;
         } catch (error, stackTrace) {
           final detail = _describeConnectionError(
             error,
@@ -505,6 +546,12 @@ class RemoteClientService extends ChangeNotifier {
             : failures.take(4).join('\n'),
       );
     } catch (error, stackTrace) {
+      if (error is _ConnectionCancelled ||
+          generation != _connectionGeneration ||
+          _disposed) {
+        return;
+      }
+      if (error is _SavedAuthorizationRejected) _lastConnectedHost = null;
       _lastError = error is _ConnectionAttemptsFailed
           ? error.message
           : _describeConnectionError(error);
@@ -543,6 +590,7 @@ class RemoteClientService extends ChangeNotifier {
     required Map<String, dynamic>? profile,
     required bool requestApproval,
     required String serverName,
+    required int generation,
   }) async {
     final signingPublicKeyBytes = decodeBytes(
       signingPublicKey,
@@ -560,7 +608,11 @@ class RemoteClientService extends ChangeNotifier {
     ).timeout(const Duration(seconds: 6));
     final iterator = StreamIterator<Object?>(socket);
     try {
-      socket.pingInterval = const Duration(seconds: 25);
+      if (generation != _connectionGeneration || _disposed) {
+        throw const _ConnectionCancelled();
+      }
+      _pendingSocket = socket;
+      socket.pingInterval = const Duration(seconds: 20);
       final clientEphemeralKey = await _keyExchange.newKeyPair();
       final clientPublicBytes = publicKeyBytes(
         await clientEphemeralKey.extractPublicKey(),
@@ -677,11 +729,16 @@ class RemoteClientService extends ChangeNotifier {
         'clientId': authResult['clientId'],
         'clientToken': authResult['clientToken'],
       });
+      if (generation != _connectionGeneration || _disposed) {
+        throw const _ConnectionCancelled();
+      }
       _socket = socket;
+      _pendingSocket = null;
       _iterator = iterator;
       _session = session;
       unawaited(_listenForServerMessages(socket, iterator, session));
     } catch (_) {
+      if (_pendingSocket == socket) _pendingSocket = null;
       await iterator.cancel();
       await socket.close(WebSocketStatus.normalClosure);
       rethrow;
@@ -711,38 +768,21 @@ class RemoteClientService extends ChangeNotifier {
     return operation;
   }
 
-  Future<void> sendMouseMove(double dx, double dy) =>
-      send({'kind': 'mouse.move', 'dx': dx, 'dy': dy});
-
-  Future<void> sendMouseButton(String button, bool pressed) =>
-      send({'kind': 'mouse.button', 'button': button, 'pressed': pressed});
-
-  Future<void> sendScroll(int delta) =>
-      send({'kind': 'mouse.scroll', 'delta': delta});
-
-  Future<void> sendText(String text) =>
-      send({'kind': 'keyboard.text', 'text': text});
-
-  Future<void> sendKey(String key) =>
-      send({'kind': 'keyboard.key', 'key': key});
-
-  Future<void> sendModifier(String key, bool pressed) =>
-      send({'kind': 'keyboard.modifier', 'key': key, 'pressed': pressed});
-
-  Future<void> sendMedia(String action) =>
-      send({'kind': 'media.command', 'action': action});
-
   Future<void> disconnect({bool clearSession = true}) async {
+    final pending = _pendingSocket;
+    _pendingSocket = null;
     final iterator = _iterator;
     _iterator = null;
     _session = null;
     if (clearSession) {
+      _connectionGeneration++;
       _connectedAddress = null;
       _lastConnectedHost = null;
       _lastError = null;
     }
     final socket = _socket;
     _socket = null;
+    await pending?.close(WebSocketStatus.normalClosure);
     await iterator?.cancel();
     await socket?.close(WebSocketStatus.normalClosure);
     _notifyListeners();
@@ -807,18 +847,7 @@ class RemoteClientService extends ChangeNotifier {
     if (!await iterator.moveNext().timeout(timeout)) {
       throw SocketException('O servidor encerrou a conexão.');
     }
-    return _decodeFrame(iterator.current);
-  }
-
-  static Map<String, dynamic> _decodeFrame(Object? frame) {
-    if (frame is! String || frame.length > SecureSession.maxFrameBytes * 2) {
-      throw const FormatException('Quadro de rede inválido.');
-    }
-    final decoded = jsonDecode(frame);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Quadro JSON inválido.');
-    }
-    return decoded;
+    return decodeWireMap(iterator.current);
   }
 
   Future<Map<String, Map<String, dynamic>>> _readProfiles() async {
@@ -884,6 +913,14 @@ class RemoteClientService extends ChangeNotifier {
 
 class _SavedAuthorizationRejected implements Exception {
   const _SavedAuthorizationRejected();
+
+  @override
+  String toString() =>
+      'O PC removeu a autorização deste celular. Solicite uma nova conexão.';
+}
+
+class _ConnectionCancelled implements Exception {
+  const _ConnectionCancelled();
 }
 
 class _ConnectionAttemptsFailed implements Exception {

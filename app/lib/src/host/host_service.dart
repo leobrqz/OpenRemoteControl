@@ -770,6 +770,13 @@ class RemoteHostService extends ChangeNotifier {
         final delta = _boundedNumber(command['delta'], -1200, 1200).round();
         await WindowsInput.scroll(delta);
         return;
+      case 'mouse.zoom':
+        final delta = _boundedNumber(command['delta'], -1200, 1200).round();
+        await WindowsInput.zoom(
+          delta,
+          controlHeld: heldModifiers.contains('control'),
+        );
+        return;
       case 'keyboard.text':
         final text = command['text'];
         if (text is! String || text.length > 512) {
@@ -879,8 +886,15 @@ class RemoteHostService extends ChangeNotifier {
     'arrowLeft',
     'arrowRight',
     'delete',
+    'home',
+    'end',
+    'pageUp',
+    'pageDown',
+    'insert',
+    'capsLock',
   };
   static const _allowedMedia = {
+    'stop',
     'volumeUp',
     'volumeDown',
     'volumeMute',

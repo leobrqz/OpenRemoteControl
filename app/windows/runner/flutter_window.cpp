@@ -161,6 +161,37 @@ bool FlutterWindow::OnCreate() {
           return;
         }
 
+        if (call.method_name() == "mouseZoom") {
+          double delta = 0;
+          bool remotely_held = false;
+          if (!read_number("delta", &delta) || !read_boolean("controlHeld", &remotely_held) || std::abs(delta) > 1200) {
+            result->Error("invalid_arguments", "Invalid zoom delta.");
+            return;
+          }
+          const bool control_held = remotely_held || (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+          std::vector<INPUT> inputs;
+          INPUT control{};
+          control.type = INPUT_KEYBOARD;
+          control.ki.wVk = VK_CONTROL;
+          if (!control_held) inputs.push_back(control);
+          INPUT wheel{};
+          wheel.type = INPUT_MOUSE;
+          wheel.mi.dwFlags = MOUSEEVENTF_WHEEL;
+          wheel.mi.mouseData = static_cast<DWORD>(static_cast<LONG>(std::lround(delta)));
+          inputs.push_back(wheel);
+          control.ki.dwFlags = KEYEVENTF_KEYUP;
+          if (!control_held) inputs.push_back(control);
+          const UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+          if (sent != static_cast<UINT>(inputs.size())) {
+            // Release only a Ctrl press introduced by this operation.
+            if (!control_held && sent > 0) SendInput(1, &control, sizeof(INPUT));
+            result->Error("input_failed", "Windows rejected zoom input.");
+            return;
+          }
+          result->Success();
+          return;
+        }
+
         if (call.method_name() == "typeText") {
           std::string text;
           if (!read_string("text", &text) || text.size() > 2048) {
@@ -286,6 +317,7 @@ bool FlutterWindow::OnCreate() {
               {"volumeDown", VK_VOLUME_DOWN},
               {"volumeMute", VK_VOLUME_MUTE},
               {"playPause", VK_MEDIA_PLAY_PAUSE},
+              {"stop", VK_MEDIA_STOP},
               {"nextTrack", VK_MEDIA_NEXT_TRACK},
               {"previousTrack", VK_MEDIA_PREV_TRACK},
           };

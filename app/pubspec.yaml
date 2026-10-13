@@ -1,7 +1,7 @@
 name: open_remote_control
 description: "Controle remoto open source para Windows via rede local"
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ^3.12.1

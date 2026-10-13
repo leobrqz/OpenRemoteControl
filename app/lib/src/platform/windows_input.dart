@@ -17,6 +17,12 @@ class WindowsInput {
   static Future<void> scroll(int delta) =>
       _channel.invokeMethod<void>('mouseScroll', {'delta': delta.toDouble()});
 
+  static Future<void> zoom(int delta, {bool controlHeld = false}) =>
+      _channel.invokeMethod<void>('mouseZoom', {
+        'delta': delta.toDouble(),
+        'controlHeld': controlHeld,
+      });
+
   static Future<void> typeText(String text) =>
       _channel.invokeMethod<void>('typeText', {'text': text});
 

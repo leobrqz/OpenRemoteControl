@@ -15,11 +15,15 @@
   <img src="https://img.shields.io/badge/Android-7.0%2B-3C9827" alt="Android 7.0 or later">
 </p>
 
+[Download APK and Windows server](https://github.com/leobrqz/OpenRemoteControl/releases/latest)
+
 ## Controls
 
-- **Mouse:** trackpad, left/right/middle clicks, dragging and scrolling.
+- **Mouse:** trackpad, clicks, dragging, two-finger scrolling and pinch zoom.
 - **Keyboard:** text, function keys and shortcuts.
 - **Media:** volume, mute, play/pause and previous/next track.
+
+The Android menu includes saved mouse, connection, theme and display settings.
 
 ## Build
 

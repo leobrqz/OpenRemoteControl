@@ -6,4 +6,5 @@
 /output/
 /docs/
 /app/web/node_modules/
+/app/android/.kotlin/
 __pycache__/
