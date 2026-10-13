@@ -10,14 +10,14 @@
     body{margin:0;min-height:100vh}
     button{font:inherit;cursor:pointer}
     .shell{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:100vh}
-    aside{background:#fff;border-right:1px solid #d8ded8;display:flex;flex-direction:column}
-    .brand{height:58px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #e1e4e1;color:#26362c;font-size:15px;font-weight:600}
+    aside{background:#fff;border-right:1px solid #d8ded8;display:flex;flex-direction:column;position:sticky;top:0;align-self:start;height:100vh;height:100dvh;overflow:hidden}
+    .brand{height:58px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #e1e4e1;color:#26362c;font-size:15px;font-weight:600}
     .brand-mark{width:25px;height:25px;flex-shrink:0}
-    nav{padding:12px 8px;display:grid;gap:3px}
+    nav{padding:12px 8px;display:grid;gap:3px;min-height:0;overflow-y:auto}
     nav button{border:0;background:transparent;text-align:left;border-radius:4px;padding:11px 12px;color:#343a35;font-size:13px;font-weight:500}
     nav button:hover{background:#f0f4ef}
     nav button.active{background:#e9f3e7;color:#286f21;font-weight:650}
-    .side-foot{margin-top:auto;padding:14px 18px;color:#778078;border-top:1px solid #e1e4e1;font-size:12px}
+    .side-foot{margin-top:auto;flex-shrink:0;padding:14px 18px;color:#778078;border-top:1px solid #e1e4e1;font-size:12px}
     main{min-width:0}
     .page-head{background:#398f24;color:white;min-height:122px;padding:22px clamp(22px,4vw,50px) 18px}
     .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.88}
@@ -55,4 +55,4 @@
     .log-output{font:12px/1.5 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:65vh;overflow:auto;margin:0;color:#303832}
     .small{font-size:12px;color:#69716b;line-height:1.5}
     .hidden{display:none}
-    @media(max-width:700px){.shell{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid #d8ded8}.brand{height:50px}nav{grid-template-columns:repeat(3,1fr);padding:7px}nav button{padding:9px 7px;text-align:center}.side-foot{display:none}.page-head{min-height:105px}.head-actions{margin-top:14px}.row{grid-template-columns:1fr;gap:5px}.device-row{align-items:flex-start;flex-direction:column}.pairing-card{grid-template-columns:1fr}.pairing-qr{width:min(240px,100%);height:auto;justify-self:center}}
+    @media(max-width:700px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;overflow:visible;border-right:0;border-bottom:1px solid #d8ded8}.brand{height:50px}nav{grid-template-columns:repeat(3,1fr);padding:7px;overflow:visible}nav button{padding:9px 7px;text-align:center}.side-foot{display:none}.page-head{min-height:105px}.head-actions{margin-top:14px}.row{grid-template-columns:1fr;gap:5px}.device-row{align-items:flex-start;flex-direction:column}.pairing-card{grid-template-columns:1fr}.pairing-qr{width:min(240px,100%);height:auto;justify-self:center}}
