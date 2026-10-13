@@ -44,7 +44,6 @@ class RemoteClientService extends ChangeNotifier {
   bool _isConnecting = false;
   bool _isResolvingManual = false;
   bool _isDiscovering = false;
-  String? _connectedServerId;
   String? _connectedAddress;
   String? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
@@ -74,9 +73,10 @@ class RemoteClientService extends ChangeNotifier {
       final packets = <Datagram>[];
       subscription = socket.listen((event) {
         if (event != RawSocketEvent.read) return;
-        Datagram? packet;
-        while ((packet = socket!.receive()) != null) {
-          if (packet!.data.length <= 4096) packets.add(packet!);
+        while (true) {
+          final datagram = socket!.receive();
+          if (datagram == null) break;
+          if (datagram.data.length <= 4096) packets.add(datagram);
         }
       });
       final nonce = encodeBytes(secureRandomBytes(16));
@@ -664,7 +664,6 @@ class RemoteClientService extends ChangeNotifier {
       _socket = socket;
       _iterator = iterator;
       _session = session;
-      _connectedServerId = serverId;
       unawaited(_listenForServerMessages(socket, iterator, session));
     } catch (_) {
       await iterator.cancel();
@@ -711,7 +710,6 @@ class RemoteClientService extends ChangeNotifier {
     final iterator = _iterator;
     _iterator = null;
     _session = null;
-    _connectedServerId = null;
     _connectedAddress = null;
     final socket = _socket;
     _socket = null;
@@ -738,7 +736,6 @@ class RemoteClientService extends ChangeNotifier {
         _socket = null;
         _iterator = null;
         _session = null;
-        _connectedServerId = null;
         _connectedAddress = null;
         _notifyListeners();
       }

@@ -1,29 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'src/client/client_screen.dart';
-import 'src/host/host_screen.dart';
+import 'src/host/host_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (defaultTargetPlatform == TargetPlatform.windows) {
-    await windowManager.ensureInitialized();
-    unawaited(
-      windowManager.waitUntilReadyToShow(
-        const WindowOptions(
-          size: Size(1140, 760),
-          center: true,
-          skipTaskbar: true,
-          title: 'Open Remote Control',
-        ),
-        () async {
-          await windowManager.hide();
-        },
-      ),
-    );
+    runApp(const HostBackground());
+    return;
   }
   runApp(const OpenRemoteApp());
 }
@@ -42,7 +27,6 @@ class OpenRemoteApp extends StatelessWidget {
       brightness: Brightness.dark,
       surface: _surface,
     );
-    final isWindows = defaultTargetPlatform == TargetPlatform.windows;
     return MaterialApp(
       title: 'Open Remote Control',
       debugShowCheckedModeBanner: false,
@@ -81,7 +65,7 @@ class OpenRemoteApp extends StatelessWidget {
           ),
         ),
       ),
-      home: isWindows ? const HostScreen() : const ClientScreen(),
+      home: const ClientScreen(),
     );
   }
 }

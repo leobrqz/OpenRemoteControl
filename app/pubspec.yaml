@@ -12,9 +12,8 @@ dependencies:
     sdk: flutter
   flutter_secure_storage: 11.2.0
   mobile_scanner: 7.4.2
-  qr_flutter: 4.1.0
+  qr: ^3.0.2
   tray_manager: ^0.5.3
-  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:

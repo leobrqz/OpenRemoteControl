@@ -82,19 +82,6 @@ bool FlutterWindow::OnCreate() {
           return SendInput(1, &input, sizeof(INPUT)) == 1;
         };
 
-        if (call.method_name() == "minimizeForControl") {
-          ShowWindow(GetHandle(), SW_MINIMIZE);
-          result->Success();
-          return;
-        }
-
-        if (call.method_name() == "showApplication") {
-          ShowWindow(GetHandle(), SW_RESTORE);
-          SetForegroundWindow(GetHandle());
-          result->Success();
-          return;
-        }
-
         if (call.method_name() == "mouseMove") {
           double dx = 0;
           double dy = 0;
@@ -316,13 +303,8 @@ bool FlutterWindow::OnCreate() {
       });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
-  });
-
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
+  // Keep the host window hidden; Windows control is managed from the tray and
+  // the local dashboard runs in the user's browser.
   flutter_controller_->ForceRedraw();
 
   return true;

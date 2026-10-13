@@ -149,10 +149,6 @@ bool Win32Window::Create(const std::wstring& title,
   return OnCreate();
 }
 
-bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
-}
-
 // static
 LRESULT CALLBACK Win32Window::WndProc(HWND const window,
                                       UINT const message,

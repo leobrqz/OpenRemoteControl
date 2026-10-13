@@ -26,6 +26,11 @@ finally {
 
 Push-Location $appDirectory
 try {
+    & flutter clean
+    if ($LASTEXITCODE -ne 0) {
+        throw "Flutter build cleanup failed with exit code $LASTEXITCODE."
+    }
+
     & flutter pub get
     if ($LASTEXITCODE -ne 0) {
         throw "Flutter dependency resolution failed with exit code $LASTEXITCODE."
@@ -53,7 +58,7 @@ $readme = @'
 Extract `OpenRemoteControl-Windows-x64.zip` and run `open_remote_control.exe`.
 The server starts automatically and stays in the Windows notification area. Double-click the tray icon to open the dashboard in your browser; right-click it to open the dashboard or exit.
 
-Open the Android app and approve its first pairing request in the dashboard. Discovery uses UDP 47653 and control uses TCP 47652.
+In the dashboard's Devices page, scan the QR with the Android app or approve its pairing request. The QR expires after five minutes. Without a relay or public route, both devices must be on the same local network. Discovery uses UDP 47653 and control uses TCP 47652.
 
 Windows diagnostics are saved to `%LOCALAPPDATA%\OpenRemoteControl\logs\open-remote.log`. The SHA-256 checksum for the ZIP is in `SHA256SUMS.txt`.
 '@

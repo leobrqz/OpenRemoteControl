@@ -9,6 +9,30 @@ function row(label,value,state){const line=node('div','row');line.append(node('d
 function showNotice(message){const box=byId('notice');box.textContent=message||'';box.classList.toggle('visible',Boolean(message));}
 async function doAction(name,id,button){if(button)button.disabled=true;try{const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:name,id:id})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Ação recusada.');showNotice('');await refresh();}catch(error){showNotice(error.message);}finally{if(button)button.disabled=false;}}
 function makeAction(label,action,id,kind){const variant=kind==='primary'?'btn-success':kind==='danger'?'btn-outline btn-error':'btn-outline btn-neutral';const button=node('button','btn btn-sm '+variant,label);button.onclick=()=>doAction(action,id,button);return button;}
+function renderPairing(data){
+  const card=node('div','pairing-card');
+  const details=node('div','pairing-copy');
+  details.append(node('h3','','Conectar pelo QR'));
+  details.append(node('p','','Escaneie este código no app Android para parear o celular.'));
+  if(!data.running){
+    details.append(node('div','empty','Inicie o servidor para gerar um QR.'));
+  }else if(data.pairingQrAvailable&&data.pairingExpiresAt){
+    const expires=new Date(data.pairingExpiresAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    details.append(node('div','device-detail','Válido até '+expires));
+    details.append(makeAction('Gerar novo QR','new_pairing_code'));
+    const image=document.createElement('img');
+    image.className='pairing-qr';
+    image.alt='QR para parear o app Android';
+    image.src='/api/pairing-qr.svg?expires='+encodeURIComponent(data.pairingExpiresAt);
+    card.append(details,image);
+    return card;
+  }else{
+    details.append(node('div','empty','O QR expirou. Gere outro para parear.'));
+    details.append(makeAction('Gerar QR','new_pairing_code','', 'primary'));
+  }
+  card.append(details);
+  return card;
+}
 function renderStatus(data){
   const root=byId('page');root.replaceChildren();
   const statusPanel=panel();
@@ -38,6 +62,7 @@ function renderStatus(data){
 }
 function renderDevices(data){
   const root=byId('page');root.replaceChildren();
+  root.append(section('Parear celular',renderPairing(data)));
   const requests=panel();
   const waiting=data.requests||[];
   if(!waiting.length)requests.append(node('div','empty','Nenhum pedido aguardando.'));
@@ -71,7 +96,7 @@ function renderNetwork(data){
   connections.append(rows);root.append(section('Conexões',connections));
   const help=panel();
   help.append(node('div','','Para conectar na mesma rede Wi-Fi, abra o app Android e toque em Solicitar.'));
-  help.append(node('p','small','Se a descoberta automática não encontrar o PC, use o QR exibido no aplicativo Windows. O acesso por 4G depende de um relay ou de uma rota pública configurada.'));
+  help.append(node('p','small','Se a descoberta não encontrar o PC, abra Dispositivos e escaneie o QR com o app Android. O QR usa endereços da rede local; para conectar de outra rede, é necessário um relay ou uma rota pública até o PC.'));
   root.append(section('Conexão local',help));
 }
 async function renderLogs(){

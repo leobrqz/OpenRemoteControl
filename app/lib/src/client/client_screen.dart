@@ -133,8 +133,9 @@ class _ClientScreenState extends State<ClientScreen> {
 
   Future<void> _copyDiagnostics() async {
     await Clipboard.setData(ClipboardData(text: await DiagnosticLog.export()));
-    if (mounted)
+    if (mounted) {
       _showMessage('Diagnóstico copiado para a área de transferência.');
+    }
   }
 
   void _showMessage(String message) {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
@@ -53,6 +52,7 @@ class RemoteHostService extends ChangeNotifier {
     _dashboard = HostDashboardServer(
       stateProvider: _dashboardState,
       actionHandler: _handleDashboardAction,
+      pairingQrProvider: () => pairingQrPayload,
     );
   }
 
@@ -141,6 +141,8 @@ class RemoteHostService extends ChangeNotifier {
     'discoveryPort': localDiscoveryPort,
     'discoveryRunning': _discoverySocket != null,
     'dashboardPort': dashboardPort,
+    'pairingQrAvailable': pairingQrPayload != null,
+    'pairingExpiresAt': _pairingExpiresAt?.toIso8601String(),
     'logPath': DiagnosticLog.filePath,
     'lastConnectionAddress': _lastConnectionAddress,
     'lastConnectionAt': _lastConnectionAt?.toIso8601String(),
@@ -189,6 +191,9 @@ class RemoteHostService extends ChangeNotifier {
           throw const FormatException('Celular pareado inválido.');
         }
         await revokeClient(clientId);
+        return;
+      case 'new_pairing_code':
+        await createPairingCode();
         return;
       default:
         throw const FormatException('Ação desconhecida no painel local.');
@@ -748,13 +753,14 @@ class RemoteHostService extends ChangeNotifier {
       case 'mouse.button':
         final button = command['button'];
         final pressed = command['pressed'];
-        if (!const {'left', 'right', 'middle'}.contains(button) ||
+        if (button is! String ||
+            !const {'left', 'right', 'middle'}.contains(button) ||
             pressed is! bool) {
           throw const FormatException('Botão de mouse inválido.');
         }
-        await WindowsInput.mouseButton(button as String, pressed);
+        await WindowsInput.mouseButton(button, pressed);
         if (pressed) {
-          heldMouseButtons.add(button as String);
+          heldMouseButtons.add(button);
         } else {
           heldMouseButtons.remove(button);
         }

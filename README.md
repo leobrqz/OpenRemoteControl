@@ -8,7 +8,7 @@ Controle remoto open source para usar um celular Android como mouse, teclado e c
 2. O servidor inicia automaticamente e fica na bandeja do Windows. Clique duas vezes no ícone para abrir o painel local no navegador; clique com o botão direito para abrir o painel ou sair.
 3. Abra o APK em `output/android/` no celular. O PC aparece pela busca local; solicite o primeiro pareamento e aprove o celular no painel do Windows. Depois disso, a autorização fica salva no aparelho.
 
-O painel de configuração aceita pedidos de conexão, mostra celulares autorizados, controla o servidor e copia os diagnósticos. Ele só escuta em `127.0.0.1` neste PC. No celular, a porta padrão é detectada automaticamente; a conexão manual por IPv4 local e porta está disponível como alternativa. QR também permanece disponível como opção.
+O painel no navegador aceita pedidos, mostra celulares autorizados, controla o servidor e copia os diagnósticos. Na aba `Dispositivos`, gere ou renove um QR de pareamento válido por cinco minutos. O QR contém endereços da rede local. Para conectar aparelhos em redes diferentes, é necessário disponibilizar uma rota pública ou um relay; isso ainda não está configurado no projeto.
 
 Descoberta usa UDP `47653`; comandos e conexão usam TCP `47652`. Na primeira execução, aceite o pedido do Firewall para redes privadas se ele aparecer.
 

@@ -5,15 +5,18 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 import '../core/diagnostic_log.dart';
+import 'pairing_qr_svg.dart';
 
 typedef DashboardStateProvider = Map<String, Object?> Function();
 typedef DashboardActionHandler =
     Future<void> Function(String action, Map<String, dynamic> parameters);
+typedef DashboardPairingQrProvider = String? Function();
 
 class HostDashboardServer {
   HostDashboardServer({
     required this.stateProvider,
     required this.actionHandler,
+    required this.pairingQrProvider,
   });
 
   static const int defaultPort = 47654;
@@ -21,6 +24,7 @@ class HostDashboardServer {
 
   final DashboardStateProvider stateProvider;
   final DashboardActionHandler actionHandler;
+  final DashboardPairingQrProvider pairingQrProvider;
   HttpServer? _server;
   StreamSubscription<HttpRequest>? _subscription;
 
@@ -87,7 +91,7 @@ class HostDashboardServer {
       ..set(
         'Content-Security-Policy',
         "default-src 'none'; style-src 'self'; script-src 'self'; "
-            "connect-src 'self'; img-src data:;",
+            "connect-src 'self'; img-src 'self' data:;",
       );
 
     final dashboardAsset = switch (request.uri.path) {
@@ -118,6 +122,24 @@ class HostDashboardServer {
     }
     if (request.method == 'GET' && request.uri.path == '/api/status') {
       await _writeJson(request.response, HttpStatus.ok, stateProvider());
+      return;
+    }
+    if (request.method == 'GET' && request.uri.path == '/api/pairing-qr.svg') {
+      final payload = pairingQrProvider();
+      if (payload == null) {
+        request.response.statusCode = HttpStatus.gone;
+        await request.response.close();
+        return;
+      }
+      request.response
+        ..headers.contentType = ContentType(
+          'image',
+          'svg+xml',
+          charset: 'utf-8',
+        )
+        ..headers.set(HttpHeaders.cacheControlHeader, 'private, max-age=60')
+        ..write(PairingQrSvg.render(payload));
+      await request.response.close();
       return;
     }
     if (request.method == 'GET' && request.uri.path == '/api/diagnostics') {

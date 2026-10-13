@@ -35,7 +35,7 @@ $readme = @'
 
 `OpenRemoteControl-Android-universal-release.apk` installs on Android 7.0 (API 24) or newer. It is a universal release-mode APK for local installation and is signed with Flutter's debug key, so it is not ready for Play Store publication or signing-key continuity across production updates.
 
-On first use, find the Windows PC on the same Wi-Fi and approve the pairing request in the Windows localhost dashboard. Manual IPv4 and port entry are available if automatic discovery is blocked. The app can copy its connection diagnostics from the connection screen.
+On first use, find the Windows PC on the same Wi-Fi and approve its pairing request in the dashboard, or scan a pairing QR from the dashboard's Devices page. The QR expires after five minutes. Without a relay or public route, both devices must be on the same local network. Manual IPv4 and port entry are available if automatic discovery is blocked. The app can copy connection diagnostics from the connection screen.
 
 Generate the APK from the repository root with `./scripts/build_android.ps1`. Its SHA-256 checksum is in `SHA256SUMS.txt`.
 '@

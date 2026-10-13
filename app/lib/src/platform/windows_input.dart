@@ -28,10 +28,4 @@ class WindowsInput {
 
   static Future<void> media(String command) =>
       _channel.invokeMethod<void>('media', {'command': command});
-
-  static Future<void> minimizeForControl() =>
-      _channel.invokeMethod<void>('minimizeForControl');
-
-  static Future<void> showApplication() =>
-      _channel.invokeMethod<void>('showApplication');
 }

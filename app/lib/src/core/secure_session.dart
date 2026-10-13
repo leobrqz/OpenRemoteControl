@@ -7,14 +7,11 @@ import 'wire.dart';
 
 class SecureSession {
   SecureSession._({
-    required SecretKey sendKey,
-    required SecretKey receiveKey,
-    required String sendDirection,
-    required String receiveDirection,
-  }) : _sendKey = sendKey,
-       _receiveKey = receiveKey,
-       _sendDirection = sendDirection,
-       _receiveDirection = receiveDirection;
+    required this._sendKey,
+    required this._receiveKey,
+    required this._sendDirection,
+    required this._receiveDirection,
+  });
 
   static const maxFrameBytes = 4096;
   static final _cipher = AesGcm.with256bits();
