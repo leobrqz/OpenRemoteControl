@@ -8,7 +8,7 @@ import 'package:open_remote_control/src/client/client_service.dart';
 import 'package:open_remote_control/src/client/controls/media_control.dart';
 import 'package:open_remote_control/src/client/controls/mouse_control.dart';
 import 'package:open_remote_control/src/client/preferences/client_preferences.dart';
-import 'package:open_remote_control/src/core/wire.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 const _host = SavedHost(
   serverId: 'test-pc',

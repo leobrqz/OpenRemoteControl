@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
 $workspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$appDirectory = Join-Path $workspaceRoot 'app'
+$appDirectory = Join-Path $workspaceRoot 'web\server'
 $outputDirectory = Join-Path $workspaceRoot 'output\windows'
 $releaseDirectory = Join-Path $appDirectory 'build\windows\x64\runner\Release'
 $archivePath = Join-Path $outputDirectory 'OpenRemoteControl-Windows-x64.zip'
-$webDirectory = Join-Path $appDirectory 'web'
+$webDirectory = Join-Path $workspaceRoot 'web'
 
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 Push-Location $webDirectory
@@ -24,13 +24,11 @@ finally {
     Pop-Location
 }
 
+New-Item -ItemType Directory -Force -Path (Join-Path $appDirectory 'assets\dashboard') | Out-Null
+Copy-Item -Path (Join-Path $webDirectory 'dist\*') -Destination (Join-Path $appDirectory 'assets\dashboard') -Recurse -Force
+
 Push-Location $appDirectory
 try {
-    & flutter clean
-    if ($LASTEXITCODE -ne 0) {
-        throw "Flutter build cleanup failed with exit code $LASTEXITCODE."
-    }
-
     & flutter pub get
     if ($LASTEXITCODE -ne 0) {
         throw "Flutter dependency resolution failed with exit code $LASTEXITCODE."

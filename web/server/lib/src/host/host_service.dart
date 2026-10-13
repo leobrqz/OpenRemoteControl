@@ -6,9 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../core/diagnostic_log.dart';
-import '../core/secure_session.dart';
-import '../core/wire.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
 

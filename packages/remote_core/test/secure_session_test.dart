@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:open_remote_control/src/core/secure_session.dart';
+import 'package:test/test.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 void main() {
   test('client commands continue over JSON WebSocket frames', () async {

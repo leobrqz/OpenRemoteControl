@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-
-import 'package:flutter/foundation.dart';
+import 'dart:developer' as developer;
 
 class DiagnosticLog {
   DiagnosticLog._();
@@ -27,8 +26,12 @@ class DiagnosticLog {
       _entries.removeRange(0, _entries.length - _maxEntries);
     }
     if (stackTrace != null) _entries.add(stackTrace.toString());
-    debugPrint(line);
-    if (stackTrace != null) debugPrint(stackTrace.toString());
+    developer.log(
+      line,
+      name: 'OpenRemote',
+      error: error,
+      stackTrace: stackTrace,
+    );
 
     _writeQueue = _writeQueue.then((_) async {
       try {
@@ -37,7 +40,7 @@ class DiagnosticLog {
         final stack = stackTrace == null ? '' : '\n$stackTrace';
         await file.writeAsString('$line$stack\n', mode: FileMode.append);
       } catch (writeError) {
-        debugPrint(
+        developer.log(
           '[OpenRemote][logs] Não foi possível salvar o log: $writeError',
         );
       }

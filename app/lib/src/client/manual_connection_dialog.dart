@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/wire.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 typedef ManualEndpoint = ({String address, int port});
 

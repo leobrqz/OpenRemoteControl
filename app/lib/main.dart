@@ -1,16 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'src/client/client_screen.dart';
 import 'src/client/preferences/client_preferences.dart';
-import 'src/host/host_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (defaultTargetPlatform == TargetPlatform.windows) {
-    runApp(const HostBackground());
-    return;
-  }
   final preferences = PreferencesController();
   await preferences.load();
   runApp(OpenRemoteApp(preferences: preferences));

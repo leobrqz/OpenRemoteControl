@@ -1,9 +1,9 @@
 {
   "name": "open-remote-control-dashboard",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "scripts": {
-    "build": "tailwindcss -i ./dashboard.input.css -o ../assets/dashboard/dashboard.css --minify"
+    "build": "node build.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.3.3",

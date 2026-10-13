@@ -114,11 +114,13 @@ def main() -> None:
             </svg>''')
         render_mark(256, light=bool(suffix)).save(BRAND / f"mark{suffix}.png")
 
+    write(ROOT / "web/server/assets/branding/mark.svg", (BRAND / "mark.svg").read_text(encoding="utf-8"))
+
     icon = render_icon(512)
     icon.save(BRAND / "app-icon.png")
     icon_sizes = [(size, size) for size in (16, 20, 24, 32, 40, 48, 64, 128, 256)]
-    icon.save(ROOT / "app/windows/runner/resources/app_icon.ico", sizes=icon_sizes)
-    render_icon(256, tray=True).save(ROOT / "app/assets/tray_icon.ico", sizes=icon_sizes)
+    icon.save(ROOT / "web/server/windows/runner/resources/app_icon.ico", sizes=icon_sizes)
+    render_icon(256, tray=True).save(ROOT / "web/server/assets/tray_icon.ico", sizes=icon_sizes)
 
     for density, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96),
                           ("xxhdpi", 144), ("xxxhdpi", 192)):

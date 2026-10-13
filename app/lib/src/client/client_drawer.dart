@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'client_destination.dart';
 import 'preferences/client_preferences.dart';
 
-enum ClientDestination { computers, controls, settings }
+export 'client_destination.dart';
 
 class ClientDrawer extends StatelessWidget {
   const ClientDrawer({

@@ -7,33 +7,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../core/diagnostic_log.dart';
-import '../core/secure_session.dart';
-import '../core/wire.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
-class SavedHost {
-  const SavedHost({
-    required this.serverId,
-    required this.name,
-    required this.addresses,
-    required this.port,
-    required this.signingPublicKey,
-  });
-
-  final String serverId;
-  final String name;
-  final List<String> addresses;
-  final int port;
-  final String signingPublicKey;
-}
+import 'models/saved_host.dart';
+import 'repositories/host_repository.dart';
+export 'models/saved_host.dart';
 
 class RemoteClientService extends ChangeNotifier {
-  RemoteClientService({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  RemoteClientService({
+    FlutterSecureStorage? storage,
+    HostRepository? repository,
+  }) : _repository = repository ?? SecureHostRepository(storage: storage);
 
-  static const _hostsStorageKey = 'orc.client.hosts.v1';
-  static const _manualEndpointStorageKey = 'orc.client.manual-endpoint.v1';
-  final FlutterSecureStorage _storage;
+  final HostRepository _repository;
   final X25519 _keyExchange = X25519();
   final Ed25519 _signatures = Ed25519();
 
@@ -62,28 +48,12 @@ class RemoteClientService extends ChangeNotifier {
   SavedHost? get currentHost => _lastConnectedHost;
 
   Future<void> forgetHost(String serverId) async {
-    final profiles = await _readProfiles();
-    profiles.remove(serverId);
-    await _writeProfiles(profiles);
+    await _repository.forgetHost(serverId);
     if (_lastConnectedHost?.serverId == serverId) await disconnect();
   }
 
-  Future<void> updateDiscoveredAddresses() async {
-    final profiles = await _readProfiles();
-    var changed = false;
-    for (final host in _discoveredHosts) {
-      final profile = profiles[host.serverId];
-      if (profile == null ||
-          profile['signingPublicKey'] != host.signingPublicKey) {
-        continue;
-      }
-      profile['addresses'] = host.addresses;
-      profile['port'] = host.port;
-      profile['name'] = host.name;
-      changed = true;
-    }
-    if (changed) await _writeProfiles(profiles);
-  }
+  Future<void> updateDiscoveredAddresses() =>
+      _repository.updateDiscoveredAddresses(_discoveredHosts);
 
   Future<List<DiscoveredHost>> discoverHosts() async {
     if (_isDiscovering) return _discoveredHosts;
@@ -221,21 +191,8 @@ class RemoteClientService extends ChangeNotifier {
     );
   }
 
-  Future<Map<String, dynamic>?> loadManualEndpoint() async {
-    final stored = await _storage.read(key: _manualEndpointStorageKey);
-    if (stored == null) return null;
-    try {
-      final decoded = jsonDecode(stored);
-      if (decoded is! Map<String, dynamic> ||
-          decoded['address'] is! String ||
-          decoded['port'] is! int) {
-        return null;
-      }
-      return decoded;
-    } on FormatException {
-      return null;
-    }
-  }
+  Future<Map<String, dynamic>?> loadManualEndpoint() =>
+      _repository.loadManualEndpoint();
 
   Future<void> connectManual({
     required String address,
@@ -302,10 +259,7 @@ class RemoteClientService extends ChangeNotifier {
           'O servidor enviou dados de identificação inválidos.',
         );
       }
-      await _storage.write(
-        key: _manualEndpointStorageKey,
-        value: jsonEncode({'address': normalizedAddress, 'port': port}),
-      );
+      await _repository.saveManualEndpoint(normalizedAddress, port);
       await connectDiscovered(host);
     } catch (error, stackTrace) {
       await DiagnosticLog.record(
@@ -329,46 +283,10 @@ class RemoteClientService extends ChangeNotifier {
     }
   }
 
-  Future<List<SavedHost>> loadSavedHosts() async {
-    final stored = await _storage.read(key: _hostsStorageKey);
-    if (stored == null) return const [];
-    try {
-      final decoded = jsonDecode(stored);
-      if (decoded is! List) return const [];
-      final result = <SavedHost>[];
-      for (final row in decoded) {
-        if (row is! Map<String, dynamic> ||
-            row['serverId'] is! String ||
-            row['name'] is! String ||
-            row['addresses'] is! List ||
-            row['port'] is! int ||
-            row['signingPublicKey'] is! String) {
-          continue;
-        }
-        final addresses = (row['addresses'] as List)
-            .whereType<String>()
-            .where(isPrivateIpv4)
-            .toList(growable: false);
-        if (addresses.isEmpty) continue;
-        decodeBytes(row['signingPublicKey'], exactLength: 32);
-        result.add(
-          SavedHost(
-            serverId: row['serverId'] as String,
-            name: row['name'] as String,
-            addresses: addresses,
-            port: row['port'] as int,
-            signingPublicKey: row['signingPublicKey'] as String,
-          ),
-        );
-      }
-      return result;
-    } on FormatException {
-      return const [];
-    }
-  }
+  Future<List<SavedHost>> loadSavedHosts() => _repository.loadSavedHosts();
 
   Future<void> connectFromQr(PairingInfo pairing) async {
-    final profiles = await _readProfiles();
+    final profiles = await _repository.readProfiles();
     final profile = profiles[pairing.serverId];
     if (profile == null && DateTime.now().isAfter(pairing.expiresAt)) {
       throw const FormatException(
@@ -388,7 +306,7 @@ class RemoteClientService extends ChangeNotifier {
     } on _SavedAuthorizationRejected {
       if (profile == null || DateTime.now().isAfter(pairing.expiresAt)) rethrow;
       profiles.remove(pairing.serverId);
-      await _writeProfiles(profiles);
+      await _repository.writeProfiles(profiles);
       await _connect(
         serverId: pairing.serverId,
         addresses: pairing.addresses,
@@ -402,7 +320,7 @@ class RemoteClientService extends ChangeNotifier {
   }
 
   Future<void> connectSaved(SavedHost host) async {
-    final profiles = await _readProfiles();
+    final profiles = await _repository.readProfiles();
     final profile = profiles[host.serverId];
     if (profile == null) {
       throw const FormatException(
@@ -437,7 +355,7 @@ class RemoteClientService extends ChangeNotifier {
       'Android',
       'Conectando a ${host.name}; IPs em ordem: ${host.addresses.join(', ')}; porta ${host.port}.',
     );
-    final profiles = await _readProfiles();
+    final profiles = await _repository.readProfiles();
     var profile = profiles[host.serverId];
     try {
       await _connect(
@@ -453,7 +371,7 @@ class RemoteClientService extends ChangeNotifier {
     } on _SavedAuthorizationRejected {
       if (profile == null) rethrow;
       profiles.remove(host.serverId);
-      await _writeProfiles(profiles);
+      await _repository.writeProfiles(profiles);
       profile = null;
       await _connect(
         serverId: host.serverId,
@@ -720,7 +638,7 @@ class RemoteClientService extends ChangeNotifier {
         throw const FormatException('O servidor recusou o pareamento.');
       }
 
-      await _saveProfile({
+      await _repository.saveProfile({
         'serverId': serverId,
         'name': serverName,
         'addresses': addresses,
@@ -848,40 +766,6 @@ class RemoteClientService extends ChangeNotifier {
       throw SocketException('O servidor encerrou a conexão.');
     }
     return decodeWireMap(iterator.current);
-  }
-
-  Future<Map<String, Map<String, dynamic>>> _readProfiles() async {
-    final stored = await _storage.read(key: _hostsStorageKey);
-    if (stored == null) return {};
-    try {
-      final decoded = jsonDecode(stored);
-      if (decoded is! List) return {};
-      return {
-        for (final row in decoded)
-          if (row is Map<String, dynamic> &&
-              row['serverId'] is String &&
-              row['clientId'] is String &&
-              row['clientToken'] is String)
-            row['serverId'] as String: row,
-      };
-    } on FormatException {
-      return {};
-    }
-  }
-
-  Future<void> _saveProfile(Map<String, Object?> profile) async {
-    final profiles = await _readProfiles();
-    profiles[profile['serverId']! as String] = profile;
-    await _writeProfiles(profiles);
-  }
-
-  Future<void> _writeProfiles(
-    Map<String, Map<String, dynamic>> profiles,
-  ) async {
-    await _storage.write(
-      key: _hostsStorageKey,
-      value: jsonEncode(profiles.values.toList(growable: false)),
-    );
   }
 
   static List<int> _handshakeTranscript(

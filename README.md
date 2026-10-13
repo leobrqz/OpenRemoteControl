@@ -36,6 +36,17 @@ On Windows, install Flutter, the Android SDK, Node.js and Visual Studio's **Desk
 
 Packages and SHA-256 checksums are written to `output/windows/` and `output/android/`.
 
+## Repository
+
+| Path | Purpose |
+| --- | --- |
+| `app/` | Android Flutter client: views, view models and repositories |
+| `web/src/` | Browser dashboard; `npm run build` in `web/` produces `web/dist/` |
+| `web/server/` | Windows background host, tray and native input integration |
+| `packages/remote_core/` | Shared Dart protocol, encryption and diagnostics |
+
+Android and Windows have separate dependencies and builds. The Windows ZIP includes the dashboard.
+
 ## Connect
 
 1. Extract the Windows ZIP and run `open_remote_control.exe`. Double-click its tray icon to open the dashboard in your browser.

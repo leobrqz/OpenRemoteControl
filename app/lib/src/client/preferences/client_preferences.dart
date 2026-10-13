@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../core/diagnostic_log.dart';
+import 'package:open_remote_core/open_remote_core.dart';
+
+import '../repositories/preferences_repository.dart';
 
 enum ControlPage {
   mouse('Mouse', Icons.touch_app_outlined),
@@ -198,11 +200,14 @@ class ClientPreferences {
 }
 
 class PreferencesController extends ChangeNotifier {
-  PreferencesController({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  PreferencesController({
+    FlutterSecureStorage? storage,
+    PreferencesRepository? repository,
+  }) : _repository =
+           repository ?? SecurePreferencesRepository(storage: storage);
 
-  static const storageKey = 'orc.client.preferences.v1';
-  final FlutterSecureStorage _storage;
+  static const storageKey = SecurePreferencesRepository.storageKey;
+  final PreferencesRepository _repository;
   ClientPreferences _value = const ClientPreferences();
   Future<void> _writes = Future<void>.value();
   bool _disposed = false;
@@ -211,7 +216,7 @@ class PreferencesController extends ChangeNotifier {
 
   Future<void> load() async {
     try {
-      final raw = await _storage.read(key: storageKey);
+      final raw = await _repository.read();
       if (raw == null) return;
       final json = jsonDecode(raw);
       if (json is Map<String, dynamic>) {
@@ -233,18 +238,19 @@ class PreferencesController extends ChangeNotifier {
     saveError = null;
     notifyListeners();
     final raw = jsonEncode(value.toJson());
-    _writes = _writes
-        .then((_) => _storage.write(key: storageKey, value: raw))
-        .catchError((Object error, StackTrace stack) async {
-          saveError = 'Não foi possível salvar as configurações.';
-          await DiagnosticLog.record(
-            'Android',
-            saveError!,
-            error: error,
-            stackTrace: stack,
-          );
-          if (!_disposed) notifyListeners();
-        });
+    _writes = _writes.then((_) => _repository.write(raw)).catchError((
+      Object error,
+      StackTrace stack,
+    ) async {
+      saveError = 'Não foi possível salvar as configurações.';
+      await DiagnosticLog.record(
+        'Android',
+        saveError!,
+        error: error,
+        stackTrace: stack,
+      );
+      if (!_disposed) notifyListeners();
+    });
     return _writes;
   }
 

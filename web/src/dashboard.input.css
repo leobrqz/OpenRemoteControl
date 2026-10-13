@@ -2,8 +2,8 @@
 @plugin "daisyui" {
   themes: light --default;
 }
-@source "../assets/dashboard/index.html";
-@source "../assets/dashboard/dashboard.js";
+@source "./index.html";
+@source "./dashboard.js";
 
 :root{font-family:"Segoe UI",Arial,sans-serif;color:#202124;background:#f5f6f5;font-synthesis:none}
     *{box-sizing:border-box}

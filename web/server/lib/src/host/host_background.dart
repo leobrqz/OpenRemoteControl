@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:tray_manager/tray_manager.dart';
 
-import '../core/diagnostic_log.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 import 'host_service.dart';
 
 class HostBackground extends StatefulWidget {

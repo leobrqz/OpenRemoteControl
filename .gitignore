@@ -5,6 +5,11 @@
 # Generated packages and dependencies.
 /output/
 /docs/
-/app/web/node_modules/
+/web/node_modules/
+/web/dist/
+/web/server/assets/dashboard/
+/web/server/windows/flutter/ephemeral/
+/packages/remote_core/.dart_tool/
+/packages/remote_core/coverage/
 /app/android/.kotlin/
 __pycache__/

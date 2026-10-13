@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-import '../core/diagnostic_log.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 import 'pairing_qr_svg.dart';
 
 typedef DashboardStateProvider = Map<String, Object?> Function();
@@ -95,8 +95,8 @@ class HostDashboardServer {
       );
 
     final dashboardAsset = switch (request.uri.path) {
-      '/assets/dashboard.css' => 'assets/dashboard/dashboard.css',
-      '/assets/dashboard.js' => 'assets/dashboard/dashboard.js',
+      '/assets/dashboard.css' => 'assets/dashboard/assets/dashboard.css',
+      '/assets/dashboard.js' => 'assets/dashboard/assets/dashboard.js',
       '/assets/mark.svg' || '/favicon.ico' => 'assets/branding/mark.svg',
       _ => null,
     };
