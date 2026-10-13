@@ -14,7 +14,7 @@ class Element {
 const all=root=>[root,...root.children.flatMap(all)];
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 async function dashboard(update){
-  const elements=new Map(['page','pageTitle','notice','copyLogs'].map(id=>[id,new Element('div')]));
+  const elements=new Map(['page','pageTitle','notice','copyLogs','appVersion'].map(id=>[id,new Element('div')]));
   const pages=['status','devices','network','logs','about'].map(page=>Object.assign(new Element('button'),{dataset:{page}}));
   const requests=[];let now=0,reloads=0,current=update;
   const context=vm.createContext({

@@ -185,6 +185,7 @@ async function reconnect(){
 }
 function render(data){
   latestState=data;byId('pageTitle').textContent=pageNames[currentPage];
+  byId('appVersion').textContent=latestUpdate?.currentVersion?'v'+latestUpdate.currentVersion:'';
   if(currentPage==='status')renderStatus(data);
   if(currentPage==='devices')renderDevices(data);
   if(currentPage==='network')renderNetwork(data);
