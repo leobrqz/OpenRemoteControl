@@ -64,6 +64,9 @@ test('restart timeout offers a reconnect button',async()=>{
   await flush();
   assert.equal(app.reloads,0);
   assert.ok(all(app.elements.get('page')).some(item=>item.textContent==='Reconectar ao painel'));
+  const requests=app.requests.length;
+  await vm.runInContext('refresh()',app.context);
+  assert.equal(app.requests.length,requests+2,'refresh must wait for the reconnect button after timeout');
 });
 test('dashboard scripts remain external with no executable notes or inline handlers',()=>{
   const html=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');

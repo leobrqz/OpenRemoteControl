@@ -132,7 +132,7 @@ function updateButton(label,action,kind){
       const body={action};if(action!=='update_check')body.candidateId=candidate.candidateId;
       const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const result=await response.json();if(!response.ok)throw new Error(result.error||'Atualização recusada.');
-      if(action==='update_install')reconnectTarget=candidate.availableVersion;
+      if(action==='update_install'){reconnectTarget=candidate.availableVersion;reconnectTimedOut=false;}
       showNotice('');await refresh();
     }catch(error){showNotice(error.message);}
     finally{updateActionPending=false;if(currentPage==='about')renderAbout(latestState);}
@@ -171,12 +171,14 @@ async function reconnect(){
   reconnectRunning=true;
   const deadline=Date.now()+60000;
   while(Date.now()<deadline){
-    await new Promise(resolve=>setTimeout(resolve,1000));
+    const nextPoll=Date.now()+1000;
     try{
-      const response=await fetch('/api/updates',{cache:'no-store',signal:AbortSignal.timeout(900)});
+      const response=await fetch('/api/updates',{cache:'no-store',signal:AbortSignal.timeout(Math.min(900,deadline-Date.now()))});
       if(response.ok){const data=await response.json();if(data.currentVersion===reconnectTarget){location.reload();return;}
         if(data.state==='failed'){latestUpdate=data;reconnectTarget=null;reconnectRunning=false;if(currentPage==='about')renderAbout(latestState);return;}}
     }catch{}
+    const remaining=Math.min(nextPoll,deadline)-Date.now();
+    if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
   }
   reconnectRunning=false;reconnectTimedOut=true;
   if(currentPage==='about')renderAbout(latestState);
@@ -194,7 +196,7 @@ async function refresh(){if(reconnectRunning)return;try{
   const [response,updates]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/updates',{cache:'no-store'})]);
   if(!response.ok||!updates.ok)throw new Error('Não foi possível ler o estado do servidor.');
   latestUpdate=await updates.json();
-  if(latestUpdate.state==='applying'){reconnectTarget=latestUpdate.availableVersion;void reconnect();}
+  if(latestUpdate.state==='applying'&&!reconnectTimedOut){reconnectTarget=latestUpdate.availableVersion;void reconnect();}
   if(latestUpdate.state==='failed')reconnectTarget=null;
   render(await response.json());
 }catch(error){if(reconnectTarget&&!reconnectTimedOut)void reconnect();else showNotice(error.message);}}
