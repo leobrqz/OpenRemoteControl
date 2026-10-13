@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'about_page.dart';
+import 'about_service.dart';
 import 'client_drawer.dart';
 import 'client_service.dart';
 import 'computers_page.dart';
@@ -17,9 +19,15 @@ import 'preferences/settings_page.dart';
 import 'client_view_model.dart';
 
 class ClientScreen extends StatefulWidget {
-  const ClientScreen({super.key, required this.preferences, this.service});
+  const ClientScreen({
+    super.key,
+    required this.preferences,
+    this.service,
+    this.aboutService,
+  });
   final PreferencesController preferences;
   final RemoteClientService? service;
+  final AboutService? aboutService;
   @override
   State<ClientScreen> createState() => _ClientScreenState();
 }
@@ -219,6 +227,7 @@ class _ClientScreenState extends State<ClientScreen>
             switch (_destination) {
               ClientDestination.computers => 'Computadores',
               ClientDestination.settings => 'Configurações',
+              ClientDestination.about => 'Sobre',
               ClientDestination.controls =>
                 '${_control.label} · ${_service.currentHost?.name ?? 'PC'}',
             },
@@ -280,6 +289,10 @@ class _ClientScreenState extends State<ClientScreen>
                 onComputers: () => _select(ClientDestination.computers, null),
                 onTestMouse: _model.testMouse,
                 onDiagnostics: () => unawaited(_model.copyDiagnostics()),
+              ),
+              AboutPage(
+                enabled: _destination == ClientDestination.about,
+                service: widget.aboutService,
               ),
             ],
           ),

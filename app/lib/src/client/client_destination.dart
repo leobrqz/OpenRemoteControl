@@ -1,1 +1,1 @@
-enum ClientDestination { computers, controls, settings }
+enum ClientDestination { computers, controls, settings, about }
