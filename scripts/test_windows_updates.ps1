@@ -3,12 +3,23 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $testRoot = Join-Path $root 'output/update-tests'
 $installed = Join-Path $testRoot 'managed'
+$fixedExecutable = [IO.Path]::GetFullPath((Join-Path $installed 'current/open_remote_control.exe'))
 $source = Join-Path $root 'output/fixtures/0.3.1'
 $base = Join-Path $root 'output/fixtures/0.3.0'
 $config = Join-Path $testRoot 'source.json'
 $dashboard = 'http://127.0.0.1:47654'
 $evidence = [Collections.Generic.List[object]]::new()
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+# Windows Firewall application rules identify the executable's full path.
+# Never launch a new network-listening copy just to run another fixture.
+$approved = @(Get-NetFirewallApplicationFilter | Where-Object {
+    $_.Program -eq $fixedExecutable
+} | Get-NetFirewallRule | Where-Object {
+    $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' -and $_.Direction -eq 'Inbound'
+})
+if (-not $approved.Count) {
+    throw "Updater tests require an already-authorized fixed executable path: $fixedExecutable. No server was launched."
+}
 function Save-Mode([string]$Mode) { [IO.File]::WriteAllText($config, (@{mode=$Mode} | ConvertTo-Json), [Text.UTF8Encoding]::new($false)) }
 function Get-State { Invoke-RestMethod -Uri "$dashboard/api/updates" -TimeoutSec 2 }
 function Action([string]$Name, [string]$Id) {
@@ -41,9 +52,14 @@ function Stop-Host {
 }
 function Reset-Managed {
     Stop-Host
-    # Use a fresh layout for each case; Windows/OneDrive can retain DLL handles
-    # briefly after exit. No running or failed installation is overwritten.
-    $script:installed = Join-Path $testRoot ('managed-' + [guid]::NewGuid().ToString('N'))
+    if (Test-Path -LiteralPath $installed) {
+        $resolved = (Resolve-Path -LiteralPath $installed).Path
+        if (-not $resolved.StartsWith($testRoot + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe fixture deletion.' }
+        for ($attempt = 0; $attempt -lt 10; $attempt++) {
+            try { Remove-Item -LiteralPath $resolved -Recurse -Force; break }
+            catch { if ($attempt -eq 9) { throw }; Start-Sleep -Milliseconds 500 }
+        }
+    }
     Expand-Archive -LiteralPath (Join-Path $base 'OpenRemoteControl-Windows-x64.zip') -DestinationPath $installed
     New-Item -ItemType Directory -Path (Join-Path $installed 'packages') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $base 'org.openremotecontrol.windows-0.3.0-win-x64-full.nupkg') -Destination (Join-Path $installed 'packages')

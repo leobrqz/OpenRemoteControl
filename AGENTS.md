@@ -36,6 +36,7 @@ Keep platform-specific code and dependencies in their owning project. Share prot
 - Keep dashboard scripts compatible with its CSP and retain loopback access and Origin validation. Avoid putting credentials or pairing secrets in logs or Git.
 - Perform implementation tests when requested; follow release validation when shipping is requested. Cover the affected behavior and report the actual results. Reuse existing devices/emulators and preserve their configuration.
 - Use the repository build scripts to produce packages. Keep Windows background processes hidden. Before recursive Windows moves/deletions, verify the resolved paths are inside the intended directory and use one shell throughout.
+- During Windows development and updater tests, reuse a fixed, already-authorized executable path. Do not launch network listeners from changing fixture/version directories, repeatedly request firewall or administrator approval, or relaunch while an approval is pending.
 
 ## Git discipline
 

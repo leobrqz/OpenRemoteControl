@@ -98,6 +98,7 @@ $readme = @'
 # Windows artifact
 
 Extract `OpenRemoteControl-Windows-x64.zip` into a user-writable directory and run its root launcher, `Open Remote Control.exe`. Keep the launcher, `Update.exe`, `current/` and `packages/` together.
+Keep this directory in place so updates retain the executable path and its existing Windows Firewall authorization.
 The server starts automatically and stays in the Windows notification area. Double-click the tray icon to open the dashboard in your browser; right-click it to open the dashboard or exit.
 
 In the dashboard's Devices page, scan the QR with the Android app or approve its pairing request. The QR expires after five minutes. Without a relay or public route, both devices must be on the same local network. Discovery uses UDP 47653 and control uses TCP 47652.

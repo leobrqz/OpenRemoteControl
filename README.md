@@ -54,3 +54,4 @@ Android and Windows have separate dependencies and builds. The Windows ZIP inclu
 3. Select the discovered PC and approve the phone in the dashboard, or scan the pairing QR. Access is saved for future connections.
 
 Windows checks for updates after startup; approve downloading and restarting under **Sobre > Atualizações** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
+Keep the managed directory in place: updates retain the executable path and its existing Windows Firewall authorization.
