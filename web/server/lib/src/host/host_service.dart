@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
+import 'host_client_repository.dart';
 import '../updates/update_service.dart';
 
 class PairedClient {
@@ -16,11 +17,15 @@ class PairedClient {
     required this.id,
     required this.name,
     required this.connected,
+    this.model,
+    this.androidVersion,
   });
 
   final String id;
   final String name;
   final bool connected;
+  final String? model;
+  final String? androidVersion;
 }
 
 class PendingPairingRequest {
@@ -28,11 +33,15 @@ class PendingPairingRequest {
     required this.id,
     required this.clientName,
     required this.address,
+    this.clientModel,
+    this.clientAndroidVersion,
   });
 
   final String id;
   final String clientName;
   final String address;
+  final String? clientModel;
+  final String? clientAndroidVersion;
 }
 
 class _PendingPairingRequestState {
@@ -58,13 +67,17 @@ class RemoteHostService extends ChangeNotifier {
 
   static const int port = 47652;
   static const _privateKeyStorageKey = 'orc.host.signing-private.v1';
-  static const _clientsStorageKey = 'orc.host.clients.v1';
+  static const _clientsStorageKey = HostClientRepository.storageKey;
 
   final FlutterSecureStorage _storage;
+  late final HostClientRepository _clientRepository = HostClientRepository(
+    read: () => _storage.read(key: _clientsStorageKey),
+    write: (value) => _storage.write(key: _clientsStorageKey, value: value),
+  );
   final Ed25519 _signatures = Ed25519();
   final X25519 _keyExchange = X25519();
   late final HostDashboardServer _dashboard;
-  final Map<String, _HostClientRecord> _clients = {};
+  final Map<String, HostClientRecord> _clients = {};
   final Map<String, _PendingPairingRequestState> _pendingPairingRequests = {};
   final Map<String, Set<WebSocket>> _clientSockets = {};
   final Set<WebSocket> _webSockets = {};
@@ -126,6 +139,8 @@ class RemoteHostService extends ChangeNotifier {
           id: client.id,
           name: client.name,
           connected: _connectedClients.contains(client.id),
+          model: client.model,
+          androidVersion: client.androidVersion,
         ),
       )
       .toList(growable: false);
@@ -161,6 +176,9 @@ class RemoteHostService extends ChangeNotifier {
           (client) => {
             'id': client.id,
             'name': client.name,
+            if (client.model != null) 'model': client.model,
+            if (client.androidVersion != null)
+              'androidVersion': client.androidVersion,
             'connected': client.connected,
           },
         )
@@ -385,38 +403,10 @@ class RemoteHostService extends ChangeNotifier {
 
   Future<void> _loadClients() async {
     _clients.clear();
-    final stored = await _storage.read(key: _clientsStorageKey);
-    if (stored == null) return;
-    final decoded = jsonDecode(stored);
-    if (decoded is! List) return;
-    for (final row in decoded) {
-      if (row is! Map<String, dynamic> ||
-          row['id'] is! String ||
-          row['name'] is! String ||
-          row['tokenHash'] is! String) {
-        continue;
-      }
-      final record = _HostClientRecord(
-        id: row['id'] as String,
-        name: row['name'] as String,
-        tokenHash: row['tokenHash'] as String,
-      );
-      _clients[record.id] = record;
-    }
+    _clients.addAll(await _clientRepository.load());
   }
 
-  Future<void> _saveClients() async {
-    final records = _clients.values
-        .map(
-          (client) => {
-            'id': client.id,
-            'name': client.name,
-            'tokenHash': client.tokenHash,
-          },
-        )
-        .toList(growable: false);
-    await _storage.write(key: _clientsStorageKey, value: jsonEncode(records));
-  }
+  Future<void> _saveClients() => _clientRepository.save(_clients.values);
 
   Future<void> _handleRequest(HttpRequest request) async {
     final remoteAddress = request.connectionInfo?.remoteAddress.address;
@@ -664,6 +654,11 @@ class RemoteHostService extends ChangeNotifier {
       }
       final paired = await _registerClient(
         _cleanClientName(auth['clientName']),
+        model: _cleanOptionalClientField(auth['clientModel'], maxLength: 64),
+        androidVersion: _cleanOptionalClientField(
+          auth['clientAndroidVersion'],
+          maxLength: 32,
+        ),
       );
       await createPairingCode();
       return paired;
@@ -683,6 +678,14 @@ class RemoteHostService extends ChangeNotifier {
           id: requestId,
           clientName: _cleanClientName(auth['clientName']),
           address: remoteAddress,
+          clientModel: _cleanOptionalClientField(
+            auth['clientModel'],
+            maxLength: 64,
+          ),
+          clientAndroidVersion: _cleanOptionalClientField(
+            auth['clientAndroidVersion'],
+            maxLength: 32,
+          ),
         ),
         decision: Completer<bool>(),
       );
@@ -701,7 +704,11 @@ class RemoteHostService extends ChangeNotifier {
       if (!approved) {
         throw const FormatException('Pareamento recusado no Windows.');
       }
-      return _registerClient(pending.request.clientName);
+      return _registerClient(
+        pending.request.clientName,
+        model: pending.request.clientModel,
+        androidVersion: pending.request.clientAndroidVersion,
+      );
     }
     if (auth['mode'] == 'resume') {
       final id = auth['clientId'];
@@ -713,18 +720,52 @@ class RemoteHostService extends ChangeNotifier {
       if (client == null || client.tokenHash != await _tokenHash(token)) {
         throw const FormatException('Este dispositivo não está autorizado.');
       }
+      final name = _cleanOptionalClientField(auth['clientName'], maxLength: 64);
+      final model = _cleanOptionalClientField(
+        auth['clientModel'],
+        maxLength: 64,
+      );
+      final androidVersion = _cleanOptionalClientField(
+        auth['clientAndroidVersion'],
+        maxLength: 32,
+      );
+      try {
+        await _clientRepository.updateMetadata(
+          _clients,
+          client,
+          name: name,
+          model: model,
+          androidVersion: androidVersion,
+        );
+      } catch (error, stackTrace) {
+        await DiagnosticLog.record(
+          'Windows',
+          'Falha ao atualizar os dados visuais do celular autorizado.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (_clients[id]?.tokenHash != client.tokenHash) {
+        throw const FormatException('Este dispositivo não está autorizado.');
+      }
       return _AuthorizedClient(clientId: id, clientToken: token);
     }
     throw const FormatException('Modo de autorização inválido.');
   }
 
-  Future<_AuthorizedClient> _registerClient(String name) async {
+  Future<_AuthorizedClient> _registerClient(
+    String name, {
+    String? model,
+    String? androidVersion,
+  }) async {
     final id = encodeBytes(secureRandomBytes(16));
     final clientToken = encodeBytes(secureRandomBytes(32));
-    _clients[id] = _HostClientRecord(
+    _clients[id] = HostClientRecord(
       id: id,
       name: name,
       tokenHash: await _tokenHash(clientToken),
+      model: model,
+      androidVersion: androidVersion,
     );
     await _saveClients();
     return _AuthorizedClient(clientId: id, clientToken: clientToken);
@@ -833,10 +874,17 @@ class RemoteHostService extends ChangeNotifier {
   }
 
   static String _cleanClientName(Object? value) {
-    if (value is! String || value.trim().isEmpty) return 'Android';
+    return _cleanOptionalClientField(value, maxLength: 64) ?? 'Android';
+  }
+
+  static String? _cleanOptionalClientField(
+    Object? value, {
+    required int maxLength,
+  }) {
+    if (value is! String || value.length > 256) return null;
     final clean = value.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '').trim();
-    if (clean.isEmpty) return 'Android';
-    return clean.substring(0, clean.length.clamp(1, 32).toInt());
+    if (clean.isEmpty) return null;
+    return clean.substring(0, clean.length.clamp(1, maxLength).toInt());
   }
 
   static String _cleanServerName(String value) {
@@ -920,18 +968,6 @@ class RemoteHostService extends ChangeNotifier {
     unawaited(stopDashboard());
     super.dispose();
   }
-}
-
-class _HostClientRecord {
-  const _HostClientRecord({
-    required this.id,
-    required this.name,
-    required this.tokenHash,
-  });
-
-  final String id;
-  final String name;
-  final String tokenHash;
 }
 
 class _AuthorizedClient {

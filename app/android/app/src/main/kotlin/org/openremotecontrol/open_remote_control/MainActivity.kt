@@ -3,6 +3,7 @@ package org.openremotecontrol.open_remote_control
 import android.content.pm.PackageManager
 import android.Manifest
 import android.content.Intent
+import android.provider.Settings
 import android.os.Build
 import android.view.View
 import android.view.WindowInsets
@@ -57,6 +58,44 @@ class MainActivity : FlutterActivity() {
                     }
                 } catch (error: Exception) { result.error("preferences_failed", error.message, null) }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "open_remote/device_identity")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "getDeviceIdentity") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                try {
+                    val manufacturer = cleanDeviceValue(Build.MANUFACTURER, 64)
+                    val model = cleanDeviceValue(Build.MODEL, 64)
+                    val deviceName = if (Build.VERSION.SDK_INT >= 25) {
+                        try {
+                            cleanDeviceValue(
+                                Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME),
+                                64,
+                            )
+                        } catch (_: Exception) {
+                            ""
+                        }
+                    } else {
+                        ""
+                    }
+                    val fallbackName = cleanDeviceValue(when {
+                        model.isEmpty() -> manufacturer.ifEmpty { "Android" }
+                        manufacturer.isEmpty() || model.contains(manufacturer, ignoreCase = true) -> model
+                        else -> "$manufacturer $model"
+                    }, 64)
+                    result.success(
+                        mapOf(
+                            "clientName" to deviceName.ifEmpty { fallbackName },
+                            "clientModel" to model,
+                            "clientAndroidVersion" to cleanDeviceValue(Build.VERSION.RELEASE, 32),
+                        ),
+                    )
+                } catch (_: Exception) {
+                    // Device metadata is optional and must never prevent a connection.
+                    result.success(mapOf("clientName" to "Android"))
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, permissionChannelName)
             .setMethodCallHandler { call, result ->
                 if (call.method != "requestLocalNetworkAccess") {
@@ -79,6 +118,13 @@ class MainActivity : FlutterActivity() {
                 requestPermissions(arrayOf(localNetworkPermission), localNetworkRequestCode)
             }
     }
+
+    private fun cleanDeviceValue(value: String?, maxLength: Int): String =
+        value.orEmpty()
+            .replace(Regex("[\\p{Cc}\\p{Cf}]+"), " ")
+            .trim()
+            .replace(Regex("\\s+"), " ")
+            .take(maxLength)
 
     override fun onRequestPermissionsResult(
         requestCode: Int,

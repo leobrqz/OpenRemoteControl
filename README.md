@@ -17,6 +17,8 @@
 
 [Download APK and Windows server](https://github.com/leobrqz/OpenRemoteControl/releases/latest)
 
+[![Download OpenRemoteControl](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/openremotecontrol/files/latest/download)
+
 ## Controls
 
 - **Mouse:** trackpad, clicks, dragging, two-finger scrolling and pinch zoom.

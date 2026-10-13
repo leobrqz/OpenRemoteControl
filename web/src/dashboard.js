@@ -7,6 +7,10 @@ let updateActionPending=false;
 let reconnectTarget=null;
 let reconnectTimedOut=false;
 let reconnectRunning=false;
+let logsOutput=null;
+let logsFetchPending=false;
+let logsGeneration=0;
+let logsErrorMessage='';
 function node(tag,className,text){const item=document.createElement(tag);if(className)item.className=className;if(text!==undefined)item.textContent=text;return item;}
 function section(title,body){const wrap=node('section','section');if(title){const heading=node('h2','',title);wrap.append(heading);}wrap.append(body);return wrap;}
 function panel(){return node('div','card bg-base-100 border border-base-300 shadow-sm p-4');}
@@ -86,7 +90,9 @@ function renderDevices(data){
   for(const item of paired){
     const line=node('div','device-row');const details=node('div');
     details.append(node('div','device-name',item.name||'Celular'));
-    details.append(node('div','device-detail',item.connected?'Conectado':'Autorizado'));
+    const metadata=[item.model&&!(item.name||'').toLowerCase().includes(item.model.toLowerCase())&&item.model,item.androidVersion&&'Android '+item.androidVersion].filter(Boolean);
+    details.append(node('div','device-detail',metadata.length?metadata.join(' · '):item.connected?'Conectado':'Autorizado'));
+    if(metadata.length)details.append(node('div','device-detail',item.connected?'Conectado':'Autorizado'));
     line.append(details,makeAction('Revogar','revoke',item.id));clients.append(line);
   }
   root.append(section('Celulares autorizados',clients));
@@ -104,11 +110,37 @@ function renderNetwork(data){
   help.append(node('p','small','Se a descoberta não encontrar o PC, abra Dispositivos e escaneie o QR com o app Android. O QR usa endereços da rede local; para conectar de outra rede, é necessário um relay ou uma rota pública até o PC.'));
   root.append(section('Conexão local',help));
 }
-async function renderLogs(){
-  const root=byId('page');root.replaceChildren();
-  const box=panel();const output=node('pre','log-output','Carregando log…');box.append(output);root.append(section('Atividade do servidor',box));
-  try{const response=await fetch('/api/diagnostics',{cache:'no-store'});output.textContent=await response.text();}
-  catch(error){output.textContent='Não foi possível carregar o log: '+error.message;}
+function renderLogs(){
+  const root=byId('page');
+  if(!logsOutput){
+    root.replaceChildren();
+    const box=panel();logsOutput=node('pre','log-output','Carregando log…');box.append(logsOutput);root.append(section('Atividade do servidor',box));
+  }
+  if(logsFetchPending)return;
+  logsFetchPending=true;
+  const output=logsOutput;const generation=logsGeneration;
+  void (async()=>{
+    try{
+      const response=await fetch('/api/diagnostics',{cache:'no-store'});
+      if(!response.ok)throw new Error('Resposta HTTP '+response.status);
+      const text=await response.text();
+      if(currentPage!=='logs'||generation!==logsGeneration||output!==logsOutput)return;
+      logsErrorMessage='';
+      if(output.textContent!==text){
+        const followTail=output.scrollTop+output.clientHeight>=output.scrollHeight-1;
+        const scrollTop=output.scrollTop;const scrollLeft=output.scrollLeft;
+        output.textContent=text;
+        output.scrollLeft=scrollLeft;
+        output.scrollTop=followTail?output.scrollHeight:scrollTop;
+      }
+      showNotice(latestState?.error||'');
+    }catch(error){
+      if(currentPage==='logs'&&generation===logsGeneration&&output===logsOutput){
+        logsErrorMessage='Falha ao carregar o diagnóstico: '+error.message+'. Verifique se o servidor está ativo e tente novamente.';
+        showNotice(latestState?.error||logsErrorMessage);
+      }
+    }finally{logsFetchPending=false;}
+  })();
 }
 function renderAbout(data){
   const root=byId('page');root.replaceChildren();
@@ -118,6 +150,13 @@ function renderAbout(data){
   rows.append(row('Licença','GPL-3.0'));
   rows.append(row('Arquivo de log',data.logPath||'—'));
   details.append(rows);root.append(section('Sobre',details));
+  const links=panel();
+  const projectLinks=node('div','flex flex-wrap gap-4');
+  for(const [label,href] of [['GitHub','https://github.com/leobrqz/OpenRemoteControl'],['SourceForge','https://sourceforge.net/projects/openremotecontrol/']]){
+    const link=node('a','link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';projectLinks.append(link);
+  }
+  links.append(projectLinks);
+  root.append(section('Projeto',links));
   root.append(section('Atualizações',renderUpdates()));
 }
 function updateButton(label,action,kind){
@@ -186,12 +225,13 @@ async function reconnect(){
 function render(data){
   latestState=data;byId('pageTitle').textContent=pageNames[currentPage];
   byId('appVersion').textContent=latestUpdate?.currentVersion?'v'+latestUpdate.currentVersion:'';
+  if(currentPage!=='logs'&&logsOutput){logsGeneration++;logsOutput=null;}
   if(currentPage==='status')renderStatus(data);
   if(currentPage==='devices')renderDevices(data);
   if(currentPage==='network')renderNetwork(data);
   if(currentPage==='logs')void renderLogs();
   if(currentPage==='about')renderAbout(data);
-  showNotice(data.error||'');
+  showNotice(data.error||(currentPage==='logs'?logsErrorMessage:''));
 }
 async function refresh(){if(reconnectRunning)return;try{
   const [response,updates]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/updates',{cache:'no-store'})]);

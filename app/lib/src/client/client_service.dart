@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:open_remote_core/open_remote_core.dart';
 
+import 'client_device_identity.dart';
 import 'models/saved_host.dart';
 import 'repositories/host_repository.dart';
 export 'models/saved_host.dart';
@@ -17,9 +18,13 @@ class RemoteClientService extends ChangeNotifier {
   RemoteClientService({
     FlutterSecureStorage? storage,
     HostRepository? repository,
-  }) : _repository = repository ?? SecureHostRepository(storage: storage);
+    Future<ClientDeviceIdentity> Function()? deviceIdentityProvider,
+  }) : _repository = repository ?? SecureHostRepository(storage: storage),
+       _deviceIdentityProvider =
+           deviceIdentityProvider ?? ClientDeviceIdentity.load;
 
   final HostRepository _repository;
+  final Future<ClientDeviceIdentity> Function() _deviceIdentityProvider;
   final X25519 _keyExchange = X25519();
   final Ed25519 _signatures = Ed25519();
 
@@ -408,6 +413,7 @@ class RemoteClientService extends ChangeNotifier {
         throw const _ConnectionCancelled();
       }
       await _ensureLocalNetworkPermission();
+      final deviceIdentity = await _loadDeviceIdentity();
       for (final address in addresses.where(isPrivateIpv4)) {
         try {
           await DiagnosticLog.record(
@@ -423,6 +429,7 @@ class RemoteClientService extends ChangeNotifier {
             pairingToken: pairingToken,
             profile: profile,
             requestApproval: requestApproval,
+            deviceIdentity: deviceIdentity,
             serverName: serverName,
             generation: generation,
           );
@@ -498,6 +505,17 @@ class RemoteClientService extends ChangeNotifier {
     }
   }
 
+  Future<ClientDeviceIdentity> _loadDeviceIdentity() async {
+    try {
+      return await _deviceIdentityProvider().timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (_) {
+      // Device details are optional and must not stop a connection.
+      return ClientDeviceIdentity.fallback;
+    }
+  }
+
   Future<void> _connectToAddress({
     required String address,
     required List<String> addresses,
@@ -507,6 +525,7 @@ class RemoteClientService extends ChangeNotifier {
     required String pairingToken,
     required Map<String, dynamic>? profile,
     required bool requestApproval,
+    required ClientDeviceIdentity deviceIdentity,
     required String serverName,
     required int generation,
   }) async {
@@ -601,13 +620,14 @@ class RemoteClientService extends ChangeNotifier {
               'kind': 'auth',
               'mode': requestApproval ? 'request_pair' : 'pair',
               if (!requestApproval) 'pairingToken': pairingToken,
-              'clientName': 'Android',
+              ...deviceIdentity.authFields,
             }
           : <String, Object?>{
               'kind': 'auth',
               'mode': 'resume',
               'clientId': profile['clientId'],
               'clientToken': profile['clientToken'],
+              ...deviceIdentity.authFields,
             };
       socket.add(jsonEncode(await session.encrypt(auth)));
       final authResult = await session.decrypt(
