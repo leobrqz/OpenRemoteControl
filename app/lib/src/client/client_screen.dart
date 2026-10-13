@@ -1043,13 +1043,15 @@ class _ClientHeader extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: const Color(0xFF1D3A36),
+          color: const Color(0xFFFFFFFF),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(
-          Icons.cast_connected_rounded,
-          color: Color(0xFF77E4D3),
-          size: 22,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Image.asset(
+            'assets/branding/mark.png',
+            excludeFromSemantics: true,
+          ),
         ),
       ),
       const SizedBox(width: 12),

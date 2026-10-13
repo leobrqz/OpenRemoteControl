@@ -95,15 +95,18 @@ class HostDashboardServer {
       );
 
     final dashboardAsset = switch (request.uri.path) {
-      '/assets/dashboard.css' => 'dashboard.css',
-      '/assets/dashboard.js' => 'dashboard.js',
+      '/assets/dashboard.css' => 'assets/dashboard/dashboard.css',
+      '/assets/dashboard.js' => 'assets/dashboard/dashboard.js',
+      '/assets/mark.svg' || '/favicon.ico' => 'assets/branding/mark.svg',
       _ => null,
     };
     if (request.method == 'GET' && dashboardAsset != null) {
-      final asset = await rootBundle.load('assets/dashboard/$dashboardAsset');
+      final asset = await rootBundle.load(dashboardAsset);
       request.response
         ..headers.contentType = dashboardAsset.endsWith('.css')
             ? ContentType('text', 'css', charset: 'utf-8')
+            : dashboardAsset.endsWith('.svg')
+            ? ContentType('image', 'svg+xml', charset: 'utf-8')
             : ContentType('application', 'javascript', charset: 'utf-8')
         ..add(
           asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),

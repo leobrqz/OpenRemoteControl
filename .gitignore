@@ -1,6 +1,9 @@
 
-# Internal stuff
-.codex
-output
-docs
-app/web/node_modules/
+# Local agent settings and playbooks.
+/.codex/
+
+# Generated packages and dependencies.
+/output/
+/docs/
+/app/web/node_modules/
+__pycache__/

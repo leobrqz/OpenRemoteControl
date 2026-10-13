@@ -1,41 +1,39 @@
-# Open Remote Control
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="app/assets/branding/mark-light.svg">
+    <img src="app/assets/branding/mark.svg" width="64" height="64" alt="Open Remote Control logo">
+  </picture>
+</p>
 
-Controle remoto open source para usar um celular Android como mouse, teclado e controle de mídia de um PC Windows. A comunicação usa a rede Wi-Fi local; o projeto não usa Bluetooth nem serviços de nuvem.
+<h1 align="center">Open Remote Control</h1>
 
-## Uso
+<p align="center">Use your Android phone as a mouse, keyboard and media remote for Windows.</p>
 
-1. Extraia `output/windows/OpenRemoteControl-Windows-x64.zip` e abra `open_remote_control.exe`.
-2. O servidor inicia automaticamente e fica na bandeja do Windows. Clique duas vezes no ícone para abrir o painel local no navegador; clique com o botão direito para abrir o painel ou sair.
-3. Abra o APK em `output/android/` no celular. O PC aparece pela busca local; solicite o primeiro pareamento e aprove o celular no painel do Windows. Depois disso, a autorização fica salva no aparelho.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-3C9827" alt="GPL-3.0-only license"></a>
+  <img src="https://img.shields.io/badge/Windows-x64-0078D4" alt="Windows x64">
+  <img src="https://img.shields.io/badge/Android-7.0%2B-3C9827" alt="Android 7.0 or later">
+</p>
 
-O painel no navegador aceita pedidos, mostra celulares autorizados, controla o servidor e copia os diagnósticos. Na aba `Dispositivos`, gere ou renove um QR de pareamento válido por cinco minutos. O QR contém endereços da rede local. Para conectar aparelhos em redes diferentes, é necessário disponibilizar uma rota pública ou um relay; isso ainda não está configurado no projeto.
+## Controls
 
-Descoberta usa UDP `47653`; comandos e conexão usam TCP `47652`. Na primeira execução, aceite o pedido do Firewall para redes privadas se ele aparecer.
+- **Mouse:** trackpad, left/right/middle clicks, dragging and scrolling.
+- **Keyboard:** text, function keys and shortcuts.
+- **Media:** volume, mute, play/pause and previous/next track.
 
-## Recursos do MVP
+## Build
 
-- Mouse: movimento, botões esquerdo/direito/meio, arrasto e rolagem.
-- Teclado: texto, teclas comuns, teclas de função e modificadores para atalhos.
-- Mídia e áudio: volume, mudo, tocar/pausar, faixa seguinte e anterior.
-- Pareamento persistente, aprovação inicial no Windows e revogação de aparelhos.
-- Diagnóstico detalhado em `%LOCALAPPDATA%\OpenRemoteControl\logs\open-remote.log` no Windows e exportação pelo app Android.
-
-O Android exige API 24 ou mais recente (Android 7.0+). O APK é universal. A compilação Android local usa a chave de debug do Flutter; ela serve para instalação manual, mas não para publicação ou atualizações pela Play Store.
-
-## Estrutura
-
-- `app/` — aplicativo Flutter para Windows e Android.
-- `scripts/build_windows.ps1` — cria o ZIP Windows x64 e o checksum em `output/windows/`.
-- `scripts/build_android.ps1` — cria o APK universal e o checksum em `output/android/`.
-- `LICENSE` — GNU GPL versão 3.0 somente.
-
-## Compilar
-
-No PowerShell, com Flutter, Node.js/npm e os componentes de build do Windows instalados, a partir da raiz do repositório:
+On Windows, install Flutter, the Android SDK, Node.js and Visual Studio's **Desktop development with C++** workload. From the repository root:
 
 ```powershell
 .\scripts\build_windows.ps1
 .\scripts\build_android.ps1
 ```
 
-O protocolo e a interface do aplicativo são próprios deste projeto, sob GPL-3.0-only. O painel usa Tailwind CSS e daisyUI, servidos localmente pelo executável. A página de funcionalidades do Unified Remote foi usada como referência de escopo e experiência, sem reutilizar código ou recursos do produto: [Unified Remote — Features](https://www.unifiedremote.com/features).
+Packages and SHA-256 checksums are written to `output/windows/` and `output/android/`.
+
+## Connect
+
+1. Extract the Windows ZIP and run `open_remote_control.exe`. Double-click its tray icon to open the dashboard in your browser.
+2. Install the Android APK and connect both devices to the same local network.
+3. Select the discovered PC and approve the phone in the dashboard, or scan the pairing QR. Access is saved for future connections.
