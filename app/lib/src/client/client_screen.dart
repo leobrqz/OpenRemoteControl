@@ -284,7 +284,7 @@ class _ClientScreenState extends State<ClientScreen> {
                                   ? null
                                   : _scanAndConnect,
                               icon: const Icon(Icons.qr_code_scanner_rounded),
-                              label: const Text('Parear por QR (alternativa)'),
+                              label: const Text('Escanear QR do servidor'),
                             ),
                           ),
                           if (_service.lastError != null) ...[

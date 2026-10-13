@@ -247,7 +247,7 @@ class _HostScreenState extends State<HostScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'O servidor inicia junto com o aplicativo e fica na bandeja do Windows. Clique duas vezes no ícone para abrir o painel local. Se o Windows pedir acesso à rede, permita no perfil ativo.',
+                    'Servidor em segundo plano na bandeja do Windows. Clique duas vezes no ícone para abrir o painel.',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: const Color(0xFF9BAEAE),
                       height: 1.45,
@@ -490,8 +490,8 @@ class _PairingCard extends StatelessWidget {
     return Card(
       child: ExpansionTile(
         leading: const Icon(Icons.qr_code_2_rounded),
-        title: const Text('Pareamento por QR (alternativa)'),
-        subtitle: const Text('Use se o PC não aparecer na busca por Wi-Fi.'),
+        title: const Text('Conectar com QR'),
+        subtitle: const Text('Leia o código no Android para parear o celular.'),
         childrenPadding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [

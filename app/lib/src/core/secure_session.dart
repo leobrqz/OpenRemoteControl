@@ -52,7 +52,9 @@ class SecureSession {
   }
 
   Future<Map<String, Object>> encrypt(Map<String, Object?> message) async {
-    if (_nextSendSequence >= 0xFFFFFFFFFFFFFFFF) {
+    // Dart integers are signed; 0xFFFFFFFFFFFFFFFF is -1 on the VM, so
+    // comparing a fresh sequence number against it rejects every first frame.
+    if (_nextSendSequence >= 0x7FFFFFFFFFFFFFFF) {
       throw StateError('Limite de sequência da sessão atingido.');
     }
     final sequence = _nextSendSequence++;

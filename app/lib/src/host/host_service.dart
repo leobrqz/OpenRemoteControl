@@ -81,6 +81,8 @@ class RemoteHostService extends ChangeNotifier {
   DateTime? _pairingExpiresAt;
   List<String> _localAddresses = const [];
   String? _lastError;
+  String? _lastConnectionAddress;
+  DateTime? _lastConnectionAt;
   bool _disposed = false;
 
   bool get isRunning => _server != null;
@@ -136,8 +138,12 @@ class RemoteHostService extends ChangeNotifier {
     'error': _lastError,
     'addresses': _localAddresses,
     'port': port,
+    'discoveryPort': localDiscoveryPort,
+    'discoveryRunning': _discoverySocket != null,
     'dashboardPort': dashboardPort,
     'logPath': DiagnosticLog.filePath,
+    'lastConnectionAddress': _lastConnectionAddress,
+    'lastConnectionAt': _lastConnectionAt?.toIso8601String(),
     'requests': pendingPairingRequests
         .map(
           (request) => {
@@ -458,6 +464,9 @@ class RemoteHostService extends ChangeNotifier {
         'Windows',
         'Conexão TCP/WebSocket recebida de $remoteAddress.',
       );
+      _lastConnectionAddress = remoteAddress;
+      _lastConnectionAt = DateTime.now();
+      _notifyListeners();
       final socket = await WebSocketTransformer.upgrade(request);
       _webSockets.add(socket);
       socket.pingInterval = const Duration(seconds: 25);
@@ -529,6 +538,7 @@ class RemoteHostService extends ChangeNotifier {
         }),
       );
 
+      phase = 'desafio seguro';
       final sharedSecret = await _keyExchange.sharedSecretKey(
         keyPair: serverEphemeralKey,
         remotePublicKey: clientPublicKey,
@@ -548,6 +558,7 @@ class RemoteHostService extends ChangeNotifier {
         ),
       );
 
+      phase = 'resposta do celular';
       final encryptedAuth = await _nextMap(iterator);
       final auth = await session.decrypt(encryptedAuth);
       phase = 'autorização';
@@ -563,6 +574,7 @@ class RemoteHostService extends ChangeNotifier {
         rethrow;
       }
       authenticatedClientId = paired.clientId;
+      _lastError = null;
       await DiagnosticLog.record(
         'Windows',
         'Cliente autorizado (${paired.clientId}) em $remoteAddress.',
@@ -595,6 +607,8 @@ class RemoteHostService extends ChangeNotifier {
         error: error,
         stackTrace: stackTrace,
       );
+      _lastError = 'Falha com $remoteAddress durante $phase: $error';
+      _notifyListeners();
     } finally {
       for (final button in heldMouseButtons.toList()) {
         try {
