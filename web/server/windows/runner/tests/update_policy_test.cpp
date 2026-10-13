@@ -1,4 +1,5 @@
 #include "../update_policy.h"
+#include <fstream>
 #include <iostream>
 
 void Require(bool condition) { if (!condition) throw std::runtime_error("test failed"); }
@@ -6,7 +7,7 @@ template<class F> void Reject(F action) {
   bool rejected = false; try { action(); } catch (const std::exception&) { rejected = true; }
   Require(rejected);
 }
-int main() {
+int Run() {
   using namespace updater;
   const auto filename = std::string(kPackageId) + "-0.3.1-win-x64-full.nupkg";
   Validate(kPackageId, "0.3.1", "0.3.0", "Full", filename, std::string(64,'a'), 1024);
@@ -21,11 +22,31 @@ int main() {
   Require(ErrorCode("Network error: Http error: io: Peer disconnected", "download") == "checksum");
   Require(ErrorCode("could not find asset", "check") == "missing_asset");
   Require(ErrorCode("CreateProcess rejected", "prepareApply") == "prepare_failed");
-  const auto root = std::filesystem::temp_directory_path() / (L"orc-policy-test-" + std::to_wstring(GetCurrentProcessId()));
+  const auto base = std::filesystem::temp_directory_path() / (L"orc-policy-test-" + std::to_wstring(GetCurrentProcessId()));
+  const auto root = base / L"\u00c1rea de Trabalho";
   std::filesystem::create_directories(root / L"current");
-  std::filesystem::create_directory(root / L"packages");
+  Require(!std::filesystem::exists(root / L"packages"));
   Preflight(root, 1);
+  Require(std::filesystem::is_directory(root / L"packages"));
+  Preflight(root, 1); // Existing caches remain usable on later attempts.
   Reject([&] { Preflight(root, UINT64_MAX / 4); });
-  std::filesystem::remove(root / L"packages"); std::filesystem::remove(root / L"current"); std::filesystem::remove(root);
+  std::filesystem::remove(root / L"packages");
+  { std::ofstream blocker(root / L"packages"); blocker << "not a directory"; }
+  bool blocked = false;
+  try { Preflight(root, 1); }
+  catch (const std::exception& error) {
+    blocked = true;
+    Require(ErrorCode(error.what(), "download") == "unwritable_directory");
+    Require(std::string(error.what()).find("Windows error ") != std::string::npos);
+    Require(std::string(error.what()).find((root / L"packages").u8string()) != std::string::npos);
+  }
+  Require(blocked);
+  std::filesystem::remove(root / L"packages"); std::filesystem::remove(root / L"current");
+  std::filesystem::remove(root); std::filesystem::remove(base);
   std::cout << "Native updater policy tests passed\n";
+  return 0;
+}
+int main() {
+  try { return Run(); }
+  catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

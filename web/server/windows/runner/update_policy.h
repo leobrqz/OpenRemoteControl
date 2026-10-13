@@ -35,16 +35,28 @@ inline uint64_t RequiredSpace(uint64_t package, uint64_t application) {
 }
 inline void Preflight(const std::filesystem::path& root, uint64_t package) {
   const auto current = root / L"current";
+  const auto packages = root / L"packages";
+  // A freshly extracted Velopack portable ZIP has no package cache yet.
+  std::error_code error;
+  std::filesystem::create_directory(packages, error);
+  if (error) {
+    throw std::runtime_error("unwritable_directory: create package cache at " +
+        packages.u8string() + " (Windows error " + std::to_string(error.value()) + ")");
+  }
   uint64_t size = 0;
   for (const auto& entry : std::filesystem::recursive_directory_iterator(current)) {
     if (entry.is_regular_file()) size += entry.file_size();
     if (entry.is_symlink()) throw std::runtime_error("unwritable_directory");
   }
-  for (const auto& directory : {root, current, root / L"packages"}) {
+  for (const auto& directory : {root, current, packages}) {
     const auto probe = directory / (L".orc-write-" + std::to_wstring(GetCurrentProcessId()));
     HANDLE file = CreateFileW(probe.c_str(), GENERIC_WRITE | DELETE, 0, nullptr,
                              CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
-    if (file == INVALID_HANDLE_VALUE) throw std::runtime_error("unwritable_directory");
+    if (file == INVALID_HANDLE_VALUE) {
+      const auto code = GetLastError();
+      throw std::runtime_error("unwritable_directory: write probe at " +
+          directory.u8string() + " (Windows error " + std::to_string(code) + ")");
+    }
     CloseHandle(file);
   }
   ULARGE_INTEGER available{};

@@ -1,7 +1,7 @@
 name: open_remote_server
 description: Open Remote Windows host with a tray icon and browser dashboard.
 publish_to: none
-version: 0.3.1+5
+version: 0.3.2+6
 environment:
   sdk: ^3.12.1
 dependencies:
