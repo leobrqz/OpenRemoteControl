@@ -157,7 +157,7 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
   }
 
   Future<void> _exitApplication() async {
-    Timer(const Duration(seconds: 9), () => exit(0));
+    Timer(const Duration(seconds: 7), () => exit(0));
     _trayClickTimer?.cancel();
     await _service.stop();
     await _service.stopDashboard();

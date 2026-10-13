@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:developer' as developer;
 
@@ -51,12 +52,30 @@ class DiagnosticLog {
   static Future<String> export() async {
     await _writeQueue;
     final path = await _resolveLogPath();
+    // Native startup and updater recovery also append to this file.
+    String? persisted;
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        final handle = await file.open();
+        try {
+          final size = await handle.length();
+          await handle.setPosition(size > 256 * 1024 ? size - 256 * 1024 : 0);
+          persisted = utf8.decode(
+            await handle.read(256 * 1024),
+            allowMalformed: true,
+          );
+        } finally {
+          await handle.close();
+        }
+      }
+    } catch (_) {}
     return [
       'Open Remote Control — diagnóstico',
       'Plataforma: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
       'Arquivo: $path',
       '',
-      ..._entries,
+      if (persisted != null) persisted else ..._entries,
     ].join('\n');
   }
 

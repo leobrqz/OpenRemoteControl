@@ -31,6 +31,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  update_bridge_ = std::make_unique<UpdateBridge>(
+      flutter_controller_->engine()->messenger(), GetHandle());
   input_channel_ = std::make_unique<
       flutter::MethodChannel<flutter::EncodableValue>>(
       flutter_controller_->engine()->messenger(), "open_remote/input",
@@ -343,6 +345,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  update_bridge_.reset();
   if (input_channel_) {
     input_channel_->SetMethodCallHandler(nullptr);
     input_channel_.reset();
@@ -358,6 +361,7 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (update_bridge_ && update_bridge_->HandleMessage(message)) return 0;
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

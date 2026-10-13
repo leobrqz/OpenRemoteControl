@@ -4,9 +4,27 @@
 
 #include "flutter_window.h"
 #include "utils.h"
+#include "update_bridge.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  if (!UpdateBridge::RunStartup()) return EXIT_SUCCESS;
+  // Workers and fast hooks have already exited. Keep one background host per
+  // Windows session, including repeated launches during updater recovery.
+  HANDLE instance_mutex = CreateMutexW(
+      nullptr, FALSE, L"Local\\OpenRemoteControl.org.openremotecontrol.windows.Server");
+  if (!instance_mutex || GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (instance_mutex) CloseHandle(instance_mutex);
+    return EXIT_SUCCESS;
+  }
+  // Portable launchers may inherit the root (or another) working directory.
+  // Flutter's data directory is relative to the actual executable in current/.
+  wchar_t executable_path[32768];
+  if (!GetModuleFileNameW(nullptr, executable_path, 32768)) return EXIT_FAILURE;
+  wchar_t* separator = wcsrchr(executable_path, L'\\');
+  if (!separator) return EXIT_FAILURE;
+  *separator = L'\0';
+  if (!SetCurrentDirectoryW(executable_path)) return EXIT_FAILURE;
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -39,5 +57,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   ::CoUninitialize();
+  CloseHandle(instance_mutex);
   return EXIT_SUCCESS;
 }
