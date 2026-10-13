@@ -15,9 +15,10 @@
   <img src="https://img.shields.io/badge/Android-7.0%2B-3C9827" alt="Android 7.0 or later">
 </p>
 
-[Download APK and Windows server](https://github.com/leobrqz/OpenRemoteControl/releases/latest)
-
-[![Download OpenRemoteControl](https://a.fsdn.com/con/app/sf-download-button)](https://sourceforge.net/projects/openremotecontrol/files/latest/download)
+<p align="center">
+  <a href="https://github.com/leobrqz/OpenRemoteControl/releases/latest"><img src="https://img.shields.io/badge/Download-GitHub-24292f?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Download from GitHub" height="36"></a>
+  <a href="https://sourceforge.net/projects/openremotecontrol/files/latest/download"><img src="https://a.fsdn.com/con/app/sf-download-button" alt="Download OpenRemoteControl" height="36"></a>
+</p>
 
 ## Controls
 
