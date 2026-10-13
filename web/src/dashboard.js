@@ -147,16 +147,24 @@ function renderAbout(data){
   const details=panel();const rows=node('div','rows');
   rows.append(row('Aplicativo','Open Remote Control'));
   rows.append(row('Servidor','Windows'));
-  rows.append(row('Licença','GPL-3.0'));
+  rows.append(row('Licença','GPL-3.0-only'));
   rows.append(row('Arquivo de log',data.logPath||'—'));
   details.append(rows);root.append(section('Sobre',details));
   const links=panel();
   const projectLinks=node('div','flex flex-wrap gap-4');
-  for(const [label,href] of [['GitHub','https://github.com/leobrqz/OpenRemoteControl'],['SourceForge','https://sourceforge.net/projects/openremotecontrol/']]){
+  for(const [label,href] of [['GitHub','https://github.com/leobrqz/OpenRemoteControl'],['SourceForge','https://sourceforge.net/projects/openremotecontrol/'],['Site oficial','https://openremotecontrol.sourceforge.io/']]){
     const link=node('a','link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';projectLinks.append(link);
   }
   links.append(projectLinks);
   root.append(section('Projeto',links));
+  const author=panel();
+  author.append(node('p','mb-3','Leonardo Briquezi aka devpatok'));
+  const authorLinks=node('div','flex flex-wrap gap-4');
+  for(const [label,href] of [['Site pessoal','https://leonardobriquezi.me'],['GitHub pessoal','https://github.com/leobrqz']]){
+    const link=node('a','link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';authorLinks.append(link);
+  }
+  author.append(authorLinks);
+  root.append(section('Desenvolvimento',author));
   root.append(section('Atualizações',renderUpdates()));
 }
 function updateButton(label,action,kind){

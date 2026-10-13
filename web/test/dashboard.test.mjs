@@ -78,13 +78,18 @@ test('dashboard scripts remain external with no executable notes or inline handl
   assert.doesNotMatch(html,/\son\w+=/i);
   assert.doesNotMatch(script,/innerHTML|eval\(|new Function/);
 });
-test('about page links to both project homes in safe new tabs',async()=>{
+test('about page shows official project and author links in safe new tabs',async()=>{
   const app=await dashboard(candidate);
-  const links=all(app.elements.get('page')).filter(item=>item.tag==='a'&&['https://github.com/leobrqz/OpenRemoteControl','https://sourceforge.net/projects/openremotecontrol/'].includes(item.href));
+  const nodes=all(app.elements.get('page'));
+  const links=nodes.filter(item=>item.tag==='a'&&['https://github.com/leobrqz/OpenRemoteControl','https://sourceforge.net/projects/openremotecontrol/','https://openremotecontrol.sourceforge.io/','https://leonardobriquezi.me','https://github.com/leobrqz'].includes(item.href));
   assert.deepEqual(links.map(item=>[item.textContent,item.href,item.target,item.rel]),[
     ['GitHub','https://github.com/leobrqz/OpenRemoteControl','_blank','noopener noreferrer'],
     ['SourceForge','https://sourceforge.net/projects/openremotecontrol/','_blank','noopener noreferrer'],
+    ['Site oficial','https://openremotecontrol.sourceforge.io/','_blank','noopener noreferrer'],
+    ['Site pessoal','https://leonardobriquezi.me','_blank','noopener noreferrer'],
+    ['GitHub pessoal','https://github.com/leobrqz','_blank','noopener noreferrer'],
   ]);
+  assert.ok(nodes.some(item=>item.textContent==='Leonardo Briquezi aka devpatok'));
 });
 test('authorized devices show name and concise model and Android metadata',async()=>{
   const app=await dashboard(candidate);
