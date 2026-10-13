@@ -85,7 +85,7 @@ class HostDashboardServer {
       ..set(
         'Content-Security-Policy',
         "default-src 'none'; style-src 'unsafe-inline'; "
-            "script-src 'unsafe-inline'; connect-src 'self';",
+            "script-src 'unsafe-inline'; connect-src 'self'; img-src data:;",
       );
 
     if (request.method == 'GET' && request.uri.path == '/') {
@@ -188,6 +188,7 @@ const String _dashboardHtml = r'''<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:,">
   <title>Open Remote Control — Servidor</title>
   <style>
     :root{font-family:"Segoe UI",Arial,sans-serif;color:#202124;background:#f5f6f5;font-synthesis:none}
@@ -339,7 +340,7 @@ function renderNetwork(data){
   const connections=panel();const rows=node('div','rows');
   rows.append(row('Controle Wi-Fi','TCP '+(data.port||47652)));
   rows.append(row('Descoberta automática','UDP '+(data.discoveryPort||47653)));
-  rows.append(row('Endereços deste PC',(data.addresses||[]).join('  ·  ')||'Nenhum endereço IPv4 local')));
+  rows.append(row('Endereços deste PC',(data.addresses||[]).join('  ·  ')||'Nenhum endereço IPv4 local'));
   rows.append(row('Painel neste computador','http://127.0.0.1:'+(data.dashboardPort||47654)+'/'));
   connections.append(rows);root.append(section('Conexões',connections));
   const help=panel();
