@@ -6,6 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../core/app_version.dart';
 import '../core/diagnostic_log.dart';
 import '../core/secure_session.dart';
 import '../core/wire.dart';
@@ -134,6 +135,8 @@ class RemoteHostService extends ChangeNotifier {
   Future<void> stopDashboard() => _dashboard.stop();
 
   Map<String, Object?> _dashboardState() => {
+    'version': AppVersion.version,
+    'buildNumber': AppVersion.buildNumber,
     'running': isRunning,
     'error': _lastError,
     'addresses': _localAddresses,

@@ -109,6 +109,8 @@ function renderAbout(data){
   const root=byId('page');root.replaceChildren();
   const details=panel();const rows=node('div','rows');
   rows.append(row('Aplicativo','Open Remote Control'));
+  rows.append(row('Versão',data.version||'—'));
+  rows.append(row('Build',data.buildNumber||'—'));
   rows.append(row('Servidor','Windows'));
   rows.append(row('Licença','GPL-3.0'));
   rows.append(row('Arquivo de log',data.logPath||'—'));

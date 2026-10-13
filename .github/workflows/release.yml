@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Annotated version tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+      - name: Restore Android signing key
+        shell: pwsh
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          if (-not $env:SIGNING_KEYSTORE) { throw 'Android signing key secret is missing.' }
+          $androidDirectory = Join-Path $env:USERPROFILE '.android'
+          New-Item -ItemType Directory -Force -Path $androidDirectory | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $androidDirectory 'debug.keystore'), [Convert]::FromBase64String($env:SIGNING_KEYSTORE))
+      - name: Build, verify and publish
+        shell: pwsh
+        run: ./scripts/publish_release.ps1 -Tag $env:RELEASE_TAG
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ env.RELEASE_TAG }}
+          path: |
+            output/windows/*.zip
+            output/android/*.apk
+            output/SHA256SUMS.txt
+          if-no-files-found: ignore

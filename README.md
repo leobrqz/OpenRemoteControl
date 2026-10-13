@@ -31,6 +31,11 @@ On Windows, install Flutter, the Android SDK, Node.js and Visual Studio's **Desk
 ```
 
 Packages and SHA-256 checksums are written to `output/windows/` and `output/android/`.
+Package names include the version from `app/pubspec.yaml`; the Windows dashboard shows it under **About**.
+
+## Releases
+
+Update `app/pubspec.yaml` and increment its build number. Commit, then push an annotated `vMAJOR.MINOR.PATCH` tag with an English title and short changelog in its message. GitHub Actions builds both packages, verifies their versions and publishes the release with checksums. The Android signing key is stored in a repository secret to preserve updates.
 
 ## Connect
 

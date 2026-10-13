@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'src/client/client_screen.dart';
+import 'src/core/app_version.dart';
 import 'src/host/host_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppVersion.load();
   if (defaultTargetPlatform == TargetPlatform.windows) {
     runApp(const HostBackground());
     return;
