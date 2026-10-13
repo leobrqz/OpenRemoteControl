@@ -1,9 +1,10 @@
 {
   "name": "open-remote-control-dashboard",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.3.3",

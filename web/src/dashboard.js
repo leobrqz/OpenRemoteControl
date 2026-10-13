@@ -1,7 +1,12 @@
 const byId=id=>document.getElementById(id);
 const pageNames={status:'Status',devices:'Dispositivos',network:'Rede',logs:'Log',about:'Sobre'};
-let currentPage='status';
+let currentPage=pageNames[location.hash.slice(1)]?location.hash.slice(1):'status';
 let latestState=null;
+let latestUpdate=null;
+let updateActionPending=false;
+let reconnectTarget=null;
+let reconnectTimedOut=false;
+let reconnectRunning=false;
 function node(tag,className,text){const item=document.createElement(tag);if(className)item.className=className;if(text!==undefined)item.textContent=text;return item;}
 function section(title,body){const wrap=node('section','section');if(title){const heading=node('h2','',title);wrap.append(heading);}wrap.append(body);return wrap;}
 function panel(){return node('div','card bg-base-100 border border-base-300 shadow-sm p-4');}
@@ -113,6 +118,68 @@ function renderAbout(data){
   rows.append(row('Licença','GPL-3.0'));
   rows.append(row('Arquivo de log',data.logPath||'—'));
   details.append(rows);root.append(section('Sobre',details));
+  root.append(section('Atualizações',renderUpdates()));
+}
+function updateButton(label,action,kind){
+  const button=node('button','btn btn-sm '+(kind==='primary'?'btn-success':'btn-outline btn-neutral'),label);
+  const busy=updateActionPending||['checking','downloading','applying'].includes(latestUpdate?.state);
+  button.disabled=busy||latestUpdate?.state==='disabled'||!latestUpdate;
+  button.onclick=async()=>{
+    if(updateActionPending)return;
+    updateActionPending=true;renderAbout(latestState);
+    const candidate=latestUpdate;
+    try{
+      const body={action};if(action!=='update_check')body.candidateId=candidate.candidateId;
+      const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'Atualização recusada.');
+      if(action==='update_install')reconnectTarget=candidate.availableVersion;
+      showNotice('');await refresh();
+    }catch(error){showNotice(error.message);}
+    finally{updateActionPending=false;if(currentPage==='about')renderAbout(latestState);}
+  };
+  return button;
+}
+function renderUpdates(){
+  const card=panel();const data=latestUpdate;
+  if(!data){card.append(node('p','','Carregando atualizações…'));return card;}
+  const labels={idle:'Pronto para verificar.',disabled:'Atualizações disponíveis no pacote portátil gerenciado. Baixe a versão atual pelo GitHub.',checking:'Verificando atualizações…',upToDate:'Você está na versão mais recente.',available:'Atualização disponível.',deferred:'Atualização adiada até reiniciar ou verificar novamente.',downloading:'Baixando e validando atualização…',applying:'Atualizando; o servidor será reiniciado',failed:'Não foi possível atualizar.'};
+  card.append(row('Versão instalada',data.currentVersion||'—'));
+  if(data.availableVersion)card.append(row('Versão disponível',data.availableVersion));
+  card.append(node('p','',labels[data.state]||''));
+  if(data.notes)card.append(node('pre','whitespace-pre-wrap break-words',data.notes));
+  if(data.releaseUrl){
+    const link=node('a','link','Ver versão no GitHub');
+    try{const url=new URL(data.releaseUrl);if(url.origin==='https://github.com'&&url.pathname.startsWith('/leobrqz/OpenRemoteControl/releases/tag/')){link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}}catch{}
+  }
+  if(data.state==='downloading'){
+    const progress=node('progress','progress progress-success w-full');progress.max=100;progress.value=data.progressPercent??0;
+    progress.setAttribute('aria-label','Download da atualização');card.append(progress,node('span','',String(progress.value)+'%'));
+  }
+  if(data.error)card.append(node('p','text-error',data.error.message));
+  const actions=node('div','actions');
+  actions.append(updateButton(data.state==='failed'?'Tentar novamente':'Verificar atualizações','update_check'));
+  if(data.state==='available')actions.append(updateButton('Atualizar','update_install','primary'),updateButton('Agora não','update_defer'));
+  if(reconnectTimedOut){
+    card.append(node('p','text-error','O servidor ainda não respondeu. Tente reconectar ao painel local.'));
+    const retry=node('button','btn btn-sm btn-outline btn-neutral','Reconectar ao painel');
+    retry.onclick=()=>{reconnectTimedOut=false;void reconnect();};actions.append(retry);
+  }
+  card.append(actions);return card;
+}
+async function reconnect(){
+  if(reconnectRunning||!reconnectTarget)return;
+  reconnectRunning=true;
+  const deadline=Date.now()+60000;
+  while(Date.now()<deadline){
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    try{
+      const response=await fetch('/api/updates',{cache:'no-store',signal:AbortSignal.timeout(900)});
+      if(response.ok){const data=await response.json();if(data.currentVersion===reconnectTarget){location.reload();return;}
+        if(data.state==='failed'){latestUpdate=data;reconnectTarget=null;reconnectRunning=false;if(currentPage==='about')renderAbout(latestState);return;}}
+    }catch{}
+  }
+  reconnectRunning=false;reconnectTimedOut=true;
+  if(currentPage==='about')renderAbout(latestState);
 }
 function render(data){
   latestState=data;byId('pageTitle').textContent=pageNames[currentPage];
@@ -123,8 +190,17 @@ function render(data){
   if(currentPage==='about')renderAbout(data);
   showNotice(data.error||'');
 }
-async function refresh(){try{const response=await fetch('/api/status',{cache:'no-store'});if(!response.ok)throw new Error('Não foi possível ler o estado do servidor.');render(await response.json());}
-catch(error){showNotice(error.message);}}
-document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>{currentPage=button.dataset.page;document.querySelectorAll('[data-page]').forEach(item=>item.classList.toggle('active',item===button));if(latestState)render(latestState);}));
+async function refresh(){if(reconnectRunning)return;try{
+  const [response,updates]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/updates',{cache:'no-store'})]);
+  if(!response.ok||!updates.ok)throw new Error('Não foi possível ler o estado do servidor.');
+  latestUpdate=await updates.json();
+  if(latestUpdate.state==='applying'){reconnectTarget=latestUpdate.availableVersion;void reconnect();}
+  if(latestUpdate.state==='failed')reconnectTarget=null;
+  render(await response.json());
+}catch(error){if(reconnectTarget&&!reconnectTimedOut)void reconnect();else showNotice(error.message);}}
+function selectPage(){document.querySelectorAll('[data-page]').forEach(item=>item.classList.toggle('active',item.dataset.page===currentPage));if(latestState)render(latestState);}
+document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>{currentPage=button.dataset.page;location.hash=currentPage;selectPage();}));
+window.addEventListener('hashchange',()=>{currentPage=pageNames[location.hash.slice(1)]?location.hash.slice(1):'status';selectPage();});
+selectPage();
 byId('copyLogs').onclick=async event=>{const button=event.currentTarget;try{const response=await fetch('/api/diagnostics',{cache:'no-store'});const text=await response.text();await navigator.clipboard.writeText(text);button.textContent='Copiado';setTimeout(()=>button.textContent='Copiar diagnóstico',1600);}catch(error){showNotice('Falha ao copiar diagnóstico: '+error.message);}};
-refresh();setInterval(refresh,3000);
+refresh();setInterval(refresh,1000);

@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
+import '../updates/update_service.dart';
 
 class PairedClient {
   const PairedClient({
@@ -45,12 +46,13 @@ class _PendingPairingRequestState {
 }
 
 class RemoteHostService extends ChangeNotifier {
-  RemoteHostService({FlutterSecureStorage? storage})
+  RemoteHostService({FlutterSecureStorage? storage, UpdateService? updates})
     : _storage = storage ?? const FlutterSecureStorage() {
     _dashboard = HostDashboardServer(
       stateProvider: _dashboardState,
       actionHandler: _handleDashboardAction,
       pairingQrProvider: () => pairingQrPayload,
+      updates: updates,
     );
   }
 
@@ -66,6 +68,7 @@ class RemoteHostService extends ChangeNotifier {
   final Map<String, _PendingPairingRequestState> _pendingPairingRequests = {};
   final Map<String, Set<WebSocket>> _clientSockets = {};
   final Set<WebSocket> _webSockets = {};
+  final Set<Future<void>> _controlSessions = {};
   final Set<String> _connectedClients = {};
 
   HttpServer? _server;
@@ -305,6 +308,7 @@ class RemoteHostService extends ChangeNotifier {
       _webSockets.map((socket) => socket.close(WebSocketStatus.goingAway)),
     );
     _webSockets.clear();
+    await Future.wait(_controlSessions.toList());
     await server?.close(force: true);
     _connectedClients.clear();
     _notifyListeners();
@@ -470,9 +474,12 @@ class RemoteHostService extends ChangeNotifier {
       final socket = await WebSocketTransformer.upgrade(request);
       _webSockets.add(socket);
       socket.pingInterval = const Duration(seconds: 25);
+      final session = _handleSocket(socket, remoteAddress: remoteAddress);
+      _controlSessions.add(session);
       try {
-        await _handleSocket(socket, remoteAddress: remoteAddress);
+        await session;
       } finally {
+        _controlSessions.remove(session);
         _webSockets.remove(socket);
       }
     } catch (error, stackTrace) {

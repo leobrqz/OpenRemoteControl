@@ -6,6 +6,8 @@ import 'package:tray_manager/tray_manager.dart';
 
 import 'package:open_remote_core/open_remote_core.dart';
 import 'host_service.dart';
+import '../updates/update_platform.dart';
+import '../updates/update_service.dart';
 
 class HostBackground extends StatefulWidget {
   const HostBackground({super.key});
@@ -15,7 +17,12 @@ class HostBackground extends StatefulWidget {
 }
 
 class _HostBackgroundState extends State<HostBackground> with TrayListener {
-  final RemoteHostService _service = RemoteHostService();
+  late final UpdateService _updates = UpdateService(
+    platform: NativeUpdatePlatform(),
+    shutdown: _exitApplication,
+  );
+  late final RemoteHostService _service = RemoteHostService(updates: _updates);
+  Future<void> _trayUpdate = Future<void>.value();
   bool _trayReady = false;
   Timer? _trayClickTimer;
   DateTime? _lastTrayClick;
@@ -24,6 +31,7 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
   void initState() {
     super.initState();
     trayManager.addListener(this);
+    _updates.addListener(_updateTray);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializeBackgroundServer());
     });
@@ -34,6 +42,8 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
     trayManager.removeListener(this);
     _trayClickTimer?.cancel();
     _service.dispose();
+    _updates.removeListener(_updateTray);
+    _updates.dispose();
     super.dispose();
   }
 
@@ -71,6 +81,11 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
         );
       }
       await _service.start();
+      if (_service.isRunning && _trayReady) {
+        unawaited(_updates.checkAfterStartup());
+      } else {
+        unawaited(_updates.initialize());
+      }
       if (_service.isRunning && !_trayReady) unawaited(_openDashboard());
     } catch (error, stackTrace) {
       await DiagnosticLog.record(
@@ -83,13 +98,49 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
     }
   }
 
-  Future<void> _openDashboard() async {
+  void _updateTray() {
+    _trayUpdate = _trayUpdate
+        .then((_) async {
+          if (!_trayReady) return;
+          final version = _updates.trayVersion;
+          await trayManager.setToolTip(
+            version == null
+                ? 'Open Remote Control'
+                : 'Open Remote Control - Atualização disponível',
+          );
+          await trayManager.setContextMenu(
+            Menu(
+              items: [
+                MenuItem(key: 'open_dashboard', label: 'Abrir painel local'),
+                if (version != null)
+                  MenuItem(
+                    key: 'update_available',
+                    label: 'Atualização disponível: $version',
+                  ),
+                MenuItem.separator(),
+                MenuItem(key: 'exit', label: 'Sair'),
+              ],
+            ),
+          );
+        })
+        .catchError((Object error) {
+          unawaited(
+            DiagnosticLog.record(
+              'WindowsUpdater',
+              'Falha ao atualizar a bandeja.',
+              error: error,
+            ),
+          );
+        });
+  }
+
+  Future<void> _openDashboard({bool about = false}) async {
     try {
       if (_service.dashboardUrl == null) await _service.startDashboard();
       final url = _service.dashboardUrl;
       if (url == null) throw StateError('Painel local indisponível.');
       await Process.start('explorer.exe', [
-        url,
+        about ? '$url#about' : url,
       ], mode: ProcessStartMode.detached);
       await DiagnosticLog.record(
         'Windows',
@@ -106,6 +157,7 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
   }
 
   Future<void> _exitApplication() async {
+    Timer(const Duration(seconds: 9), () => exit(0));
     _trayClickTimer?.cancel();
     await _service.stop();
     await _service.stopDashboard();
@@ -143,6 +195,9 @@ class _HostBackgroundState extends State<HostBackground> with TrayListener {
     switch (menuItem.key) {
       case 'open_dashboard':
         unawaited(_openDashboard());
+        break;
+      case 'update_available':
+        unawaited(_openDashboard(about: true));
         break;
       case 'exit':
         unawaited(_exitApplication());

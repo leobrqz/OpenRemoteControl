@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'package:open_remote_core/open_remote_core.dart';
 import 'pairing_qr_svg.dart';
+import '../updates/update_service.dart';
 
 typedef DashboardStateProvider = Map<String, Object?> Function();
 typedef DashboardActionHandler =
@@ -17,6 +18,7 @@ class HostDashboardServer {
     required this.stateProvider,
     required this.actionHandler,
     required this.pairingQrProvider,
+    this.updates,
   });
 
   static const int defaultPort = 47654;
@@ -25,6 +27,7 @@ class HostDashboardServer {
   final DashboardStateProvider stateProvider;
   final DashboardActionHandler actionHandler;
   final DashboardPairingQrProvider pairingQrProvider;
+  final UpdateService? updates;
   HttpServer? _server;
   StreamSubscription<HttpRequest>? _subscription;
 
@@ -127,6 +130,14 @@ class HostDashboardServer {
       await _writeJson(request.response, HttpStatus.ok, stateProvider());
       return;
     }
+    if (request.method == 'GET' && request.uri.path == '/api/updates') {
+      await _writeJson(
+        request.response,
+        HttpStatus.ok,
+        updates?.snapshot ?? {'state': 'disabled'},
+      );
+      return;
+    }
     if (request.method == 'GET' && request.uri.path == '/api/pairing-qr.svg') {
       final payload = pairingQrProvider();
       if (payload == null) {
@@ -164,8 +175,43 @@ class HostDashboardServer {
         if (action is! String || action.length > 32) {
           throw const FormatException('Ação inválida.');
         }
-        await actionHandler(action, body);
-        await _writeJson(request.response, HttpStatus.ok, {'ok': true});
+        var status = HttpStatus.ok;
+        if (action.startsWith('update_')) {
+          final updater = updates;
+          if (updater == null) {
+            throw const UpdateConflict('Atualizações indisponíveis.');
+          }
+          final expected = action == 'update_check'
+              ? {'action'}
+              : {'action', 'candidateId'};
+          if (body.keys.any((key) => !expected.contains(key))) {
+            throw const FormatException('Parâmetros de atualização inválidos.');
+          }
+          switch (action) {
+            case 'update_check':
+              updater.check();
+              status = HttpStatus.accepted;
+            case 'update_defer':
+            case 'update_install':
+              final id = body['candidateId'];
+              if (id is! String || id.isEmpty || id.length > 64) {
+                throw const FormatException(
+                  'Identificador de atualização inválido.',
+                );
+              }
+              if (action == 'update_defer') {
+                updater.defer(id);
+              } else {
+                updater.install(id);
+                status = HttpStatus.accepted;
+              }
+            default:
+              throw const FormatException('Ação de atualização desconhecida.');
+          }
+        } else {
+          await actionHandler(action, body);
+        }
+        await _writeJson(request.response, status, {'ok': true});
       } catch (error, stackTrace) {
         await DiagnosticLog.record(
           'Dashboard Windows',
@@ -173,9 +219,11 @@ class HostDashboardServer {
           error: error,
           stackTrace: stackTrace,
         );
-        await _writeJson(request.response, HttpStatus.badRequest, {
-          'error': error.toString(),
-        });
+        await _writeJson(
+          request.response,
+          error is UpdateConflict ? HttpStatus.conflict : HttpStatus.badRequest,
+          {'error': error.toString()},
+        );
       }
       return;
     }
