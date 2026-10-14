@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,12 +67,16 @@ void main() {
       await preferences.update(
         preferences.value.copyWith(
           automaticDiscovery: false,
+          language: 'pt-BR',
           updateServerAddress: false,
         ),
       );
       final about = _FakeAboutService();
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('pt', 'BR'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ClientScreen(
             preferences: preferences,
             service: _FakeService(),
@@ -90,7 +95,7 @@ void main() {
       expect(aboutTile, findsOneWidget);
       expect(
         tester.getRect(aboutTile).bottom,
-        closeTo(tester.getRect(find.byType(Drawer)).bottom, 1),
+        lessThan(tester.getRect(find.byType(Drawer)).bottom),
       );
       expect(
         find.descendant(
@@ -125,12 +130,16 @@ void main() {
     await preferences.update(
       preferences.value.copyWith(
         automaticDiscovery: false,
+        language: 'pt-BR',
         updateServerAddress: false,
       ),
     );
     final about = _FakeAboutService(openResult: false);
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('pt', 'BR'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ClientScreen(
           preferences: preferences,
           service: _FakeService(),

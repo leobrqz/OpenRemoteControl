@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 
 import 'client_device_identity.dart';
+import 'client_message.dart';
 import 'models/saved_host.dart';
 import 'repositories/host_repository.dart';
 export 'models/saved_host.dart';
@@ -38,7 +39,7 @@ class RemoteClientService extends ChangeNotifier {
   bool _isDiscovering = false;
   String? _connectedAddress;
   SavedHost? _lastConnectedHost;
-  String? _lastError;
+  ClientMessage? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
   bool _disposed = false;
   int _connectionGeneration = 0;
@@ -49,7 +50,7 @@ class RemoteClientService extends ChangeNotifier {
   bool get isDiscovering => _isDiscovering;
   List<DiscoveredHost> get discoveredHosts => _discoveredHosts;
   String? get connectedAddress => _connectedAddress;
-  String? get lastError => _lastError;
+  ClientMessage? get lastError => _lastError;
   SavedHost? get currentHost => _lastConnectedHost;
 
   Future<void> forgetHost(String serverId) async {
@@ -206,12 +207,10 @@ class RemoteClientService extends ChangeNotifier {
     if (isConnecting) return;
     final normalizedAddress = address.trim();
     if (!isPrivateIpv4(normalizedAddress)) {
-      throw const FormatException(
-        'Digite o IPv4 local do Windows, por exemplo 192.168.1.20.',
-      );
+      throw const ClientMessageException(ClientMessage('localIpValidation'));
     }
     if (port < 1024 || port > 65535) {
-      throw const FormatException('A porta deve ficar entre 1024 e 65535.');
+      throw const ClientMessageException(ClientMessage('portValidation'));
     }
     _isResolvingManual = true;
     _lastError = null;
@@ -245,14 +244,16 @@ class RemoteClientService extends ChangeNotifier {
       }
       final body = await response.transform(utf8.decoder).join();
       if (body.length > 8192) {
-        throw const FormatException('Resposta /info maior que o limite.');
+        throw const ClientMessageException(
+          ClientMessage('serverDescriptorInvalid'),
+        );
       }
       final decoded = jsonDecode(body);
       if (decoded is! Map<String, dynamic> ||
           decoded['type'] != 'open-remote-server' ||
           decoded['version'] != 1) {
-        throw const FormatException(
-          'O IP e a porta não responderam como servidor Open Remote.',
+        throw const ClientMessageException(
+          ClientMessage('serverDescriptorInvalid'),
         );
       }
       final host = await _hostFromDescriptor(
@@ -260,8 +261,8 @@ class RemoteClientService extends ChangeNotifier {
         sourceAddress: normalizedAddress,
       );
       if (host == null) {
-        throw const FormatException(
-          'O servidor enviou dados de identificação inválidos.',
+        throw const ClientMessageException(
+          ClientMessage('serverIdentityInvalid'),
         );
       }
       await _repository.saveManualEndpoint(normalizedAddress, port);
@@ -274,11 +275,7 @@ class RemoteClientService extends ChangeNotifier {
         stackTrace: stackTrace,
       );
       if (error is SocketException || error is TimeoutException) {
-        _lastError = _describeConnectionError(
-          error,
-          address: normalizedAddress,
-          port: port,
-        );
+        _lastError = _describeConnectionError(error);
       }
       rethrow;
     } finally {
@@ -294,9 +291,7 @@ class RemoteClientService extends ChangeNotifier {
     final profiles = await _repository.readProfiles();
     final profile = profiles[pairing.serverId];
     if (profile == null && DateTime.now().isAfter(pairing.expiresAt)) {
-      throw const FormatException(
-        'O QR de pareamento expirou. Gere outro no Windows.',
-      );
+      throw const ClientMessageException(ClientMessage('pairingExpired'));
     }
     try {
       await _connect(
@@ -328,9 +323,7 @@ class RemoteClientService extends ChangeNotifier {
     final profiles = await _repository.readProfiles();
     final profile = profiles[host.serverId];
     if (profile == null) {
-      throw const FormatException(
-        'Este computador precisa ser pareado novamente.',
-      );
+      throw const ClientMessageException(ClientMessage('invalidAuthorization'));
     }
     await _connect(
       serverId: host.serverId,
@@ -450,13 +443,10 @@ class RemoteClientService extends ChangeNotifier {
           rethrow;
         } on _SavedAuthorizationRejected {
           rethrow;
+        } on ClientMessageException {
+          rethrow;
         } catch (error, stackTrace) {
-          final detail = _describeConnectionError(
-            error,
-            address: address,
-            port: port,
-          );
-          failures.add(detail);
+          failures.add(error.toString());
           await DiagnosticLog.record(
             'Android',
             'Falha ao conectar em $address:$port.',
@@ -466,9 +456,7 @@ class RemoteClientService extends ChangeNotifier {
         }
       }
       throw _ConnectionAttemptsFailed(
-        failures.isEmpty
-            ? 'Nenhum IP privado válido foi anunciado pelo Windows.'
-            : failures.take(4).join('\n'),
+        ClientMessage('networkFailure', detail: failures.take(4).toList()),
       );
     } catch (error, stackTrace) {
       if (error is _ConnectionCancelled ||
@@ -482,7 +470,7 @@ class RemoteClientService extends ChangeNotifier {
           : _describeConnectionError(error);
       await DiagnosticLog.record(
         'Android',
-        'Tentativa de conexão encerrada: $_lastError',
+        'Connection attempt ended (${_lastError?.key ?? 'unknown'}).',
         error: error,
         stackTrace: stackTrace,
       );
@@ -501,7 +489,7 @@ class RemoteClientService extends ChangeNotifier {
       'requestLocalNetworkAccess',
     );
     if (granted != true) {
-      throw StateError('Permita o acesso à rede local para conectar ao PC.');
+      throw const ClientMessageException(ClientMessage('accessLocalNetwork'));
     }
   }
 
@@ -537,7 +525,7 @@ class RemoteClientService extends ChangeNotifier {
       (await Sha256().hash(signingPublicKeyBytes)).bytes,
     ).substring(0, 22);
     if (serverId != expectedServerId) {
-      throw const FormatException('Server identity does not match its key.');
+      throw const ClientMessageException(ClientMessage('identityMismatch'));
     }
     final uri = Uri(scheme: 'ws', host: address, port: port, path: '/control');
     final socket = await WebSocket.connect(
@@ -566,7 +554,7 @@ class RemoteClientService extends ChangeNotifier {
 
       final response = await _nextMap(iterator);
       if (response['type'] != 'server_key' || response['version'] != 1) {
-        throw const FormatException('Resposta de handshake inválida.');
+        throw const ClientMessageException(ClientMessage('handshakeInvalid'));
       }
       final serverEphemeralBytes = decodeBytes(
         response['serverEphemeralKey'],
@@ -592,9 +580,7 @@ class RemoteClientService extends ChangeNotifier {
         signature: Signature(signatureBytes, publicKey: serverIdentity),
       );
       if (!signatureValid) {
-        throw const FormatException(
-          'A identidade do servidor não corresponde ao QR escaneado.',
-        );
+        throw const ClientMessageException(ClientMessage('identityMismatch'));
       }
 
       final sharedSecret = await _keyExchange.sharedSecretKey(
@@ -612,7 +598,9 @@ class RemoteClientService extends ChangeNotifier {
       );
       final challenge = await session.decrypt(await _nextMap(iterator));
       if (challenge['kind'] != 'challenge' || challenge['nonce'] is! String) {
-        throw const FormatException('Desafio de autenticação inválido.');
+        throw const ClientMessageException(
+          ClientMessage('authenticationInvalid'),
+        );
       }
 
       final auth = profile == null
@@ -639,23 +627,49 @@ class RemoteClientService extends ChangeNotifier {
         ),
       );
       if (authResult['kind'] == 'auth_error') {
+        final code = authResult['code'];
+        if (code == 'pairing_expired') {
+          throw const ClientMessageException(ClientMessage('pairingExpired'));
+        }
+        if (code == 'pairing_limit') {
+          throw const ClientMessageException(ClientMessage('pairingLimit'));
+        }
+        if (code == 'request_pending') {
+          throw const ClientMessageException(ClientMessage('requestPending'));
+        }
+        if (code == 'pairing_rejected') {
+          throw const ClientMessageException(ClientMessage('pairingRejected'));
+        }
+        if (code == 'authorization_revoked') {
+          if (authResult['mode'] == 'resume') {
+            throw const _SavedAuthorizationRejected();
+          }
+          throw const ClientMessageException(
+            ClientMessage('authorizationRevoked'),
+          );
+        }
+        if (code == 'invalid_authorization') {
+          throw const ClientMessageException(
+            ClientMessage('invalidAuthorization'),
+          );
+        }
         if (authResult['mode'] == 'resume') {
           throw const _SavedAuthorizationRejected();
         }
         if (authResult['mode'] == 'request_pair') {
-          throw const FormatException(
-            'Aprove o pedido de conexão no computador Windows.',
+          throw const ClientMessageException(
+            ClientMessage('serverPairApproval'),
           );
         }
-        throw const FormatException(
-          'Acesso recusado. Gere um novo QR ou confira se este celular ainda está pareado.',
-        );
+        throw const ClientMessageException(ClientMessage('accessDenied'));
       }
       if (authResult['kind'] != 'auth_ok' ||
           authResult['serverId'] != serverId ||
           authResult['clientId'] is! String ||
           authResult['clientToken'] is! String) {
-        throw const FormatException('O servidor recusou o pareamento.');
+        throw const ClientMessageException(
+          ClientMessage('serverRefusedPairing'),
+        );
       }
 
       await _repository.saveProfile({
@@ -687,7 +701,9 @@ class RemoteClientService extends ChangeNotifier {
     final socket = _socket;
     final session = _session;
     if (socket == null || session == null) {
-      return Future<void>.error(StateError('Nenhum PC está conectado.'));
+      return Future<void>.error(
+        const ClientMessageException(ClientMessage('noConnection')),
+      );
     }
     final operation = _sendQueue.then((_) async {
       if (_socket != socket || socket.readyState != WebSocket.open) return;
@@ -751,9 +767,12 @@ class RemoteClientService extends ChangeNotifier {
         _socket = null;
         _iterator = null;
         _session = null;
-        _lastError = disconnectReason == null
-            ? 'O PC encerrou a conexão.'
-            : 'Conexão perdida: $disconnectReason';
+        _lastError = ClientMessage(
+          disconnectReason == null
+              ? 'serverClosedConnection'
+              : 'connectionLost',
+          detail: disconnectReason,
+        );
         _notifyListeners();
       }
       await iterator.cancel();
@@ -761,21 +780,17 @@ class RemoteClientService extends ChangeNotifier {
     }
   }
 
-  String _describeConnectionError(Object error, {String? address, int? port}) {
-    final endpoint = address == null
-        ? ''
-        : ' $address${port == null ? '' : ':$port'}';
+  ClientMessage _describeConnectionError(Object error) {
+    if (error is _SavedAuthorizationRejected) {
+      return ClientMessage('authorizationRevoked', detail: error);
+    }
     if (error is SocketException) {
-      final osError = error.osError;
-      final detail = osError == null
-          ? error.message
-          : '${osError.message} (código ${osError.errorCode})';
-      return 'Falha TCP$endpoint: $detail. Confira se o servidor está ativo e se o Firewall do Windows libera a porta ${port ?? 47652}.';
+      return ClientMessage('networkFailure', detail: error);
     }
     if (error is TimeoutException) {
-      return 'Timeout de rede$endpoint: o PC não respondeu dentro do prazo. Verifique firewall e isolamento de clientes no roteador.';
+      return ClientMessage('networkTimeout', detail: error);
     }
-    return error.toString();
+    return ClientMessage.fromError(error, fallback: 'secureConnectionFailed');
   }
 
   Future<Map<String, dynamic>> _nextMap(
@@ -830,8 +845,8 @@ class _ConnectionCancelled implements Exception {
 class _ConnectionAttemptsFailed implements Exception {
   const _ConnectionAttemptsFailed(this.message);
 
-  final String message;
+  final ClientMessage message;
 
   @override
-  String toString() => message;
+  String toString() => '${message.key}: ${message.detail ?? ''}';
 }

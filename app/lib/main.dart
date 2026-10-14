@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'src/client/client_screen.dart';
 import 'src/client/preferences/client_preferences.dart';
+import 'l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,9 @@ class OpenRemoteApp extends StatelessWidget {
     listenable: preferences,
     builder: (context, _) => MaterialApp(
       title: 'Open Remote',
+      locale: preferences.value.locale,
+      supportedLocales: const [Locale('en', 'US'), Locale('pt', 'BR')],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),

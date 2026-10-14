@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 
 import '../preferences/client_preferences.dart';
 import 'remote_actions.dart';
@@ -23,92 +24,91 @@ class _MouseControlState extends State<MouseControl> {
   bool _dragMode = false;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final content = Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Expanded(
-              child: MouseTouchpad(
-                actions: widget.actions,
-                preferences: widget.preferences,
-                active: widget.active,
-                dragMode: _dragMode,
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Expanded(
+                child: MouseTouchpad(
+                  actions: widget.actions,
+                  preferences: widget.preferences,
+                  active: widget.active,
+                  dragMode: _dragMode,
+                ),
               ),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Arrastar'),
-              value: _dragMode,
-              onChanged: (enabled) => setState(() => _dragMode = enabled),
-            ),
-            Row(
-              children: [
-                for (final entry in const {
-                  'left': 'Esquerdo',
-                  'middle': 'Meio',
-                  'right': 'Direito',
-                }.entries)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: FilledButton.tonal(
-                        onPressed: widget.active
-                            ? () => widget.actions.click(entry.key)
-                            : null,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 12,
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(l10n.drag),
+                value: _dragMode,
+                onChanged: (enabled) => setState(() => _dragMode = enabled),
+              ),
+              Row(
+                children: [
+                  for (final entry in {
+                    'left': l10n.leftClick,
+                    'middle': l10n.middleClick,
+                    'right': l10n.rightClick,
+                  }.entries)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: FilledButton.tonal(
+                          onPressed: widget.active
+                              ? () => widget.actions.click(entry.key)
+                              : null,
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 12,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          entry.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          child: Text(entry.value, textAlign: TextAlign.center),
                         ),
                       ),
                     ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.active
+                          ? () => widget.actions.scroll(120)
+                          : null,
+                      icon: const Icon(Icons.keyboard_arrow_up),
+                      label: Text(l10n.scroll),
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: widget.active
-                        ? () => widget.actions.scroll(120)
-                        : null,
-                    icon: const Icon(Icons.keyboard_arrow_up),
-                    label: const Text('Rolar'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.active
+                          ? () => widget.actions.scroll(-120)
+                          : null,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      label: Text(l10n.scroll),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: widget.active
-                        ? () => widget.actions.scroll(-120)
-                        : null,
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    label: const Text('Rolar'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-      if (constraints.maxHeight < 360) {
-        return SingleChildScrollView(
-          child: SizedBox(height: 420, child: content),
+                ],
+              ),
+            ],
+          ),
         );
-      }
-      return content;
-    },
-  );
+        if (constraints.maxHeight < 360) {
+          return SingleChildScrollView(
+            child: SizedBox(height: 420, child: content),
+          );
+        }
+        return content;
+      },
+    );
+  }
 }
 
 enum _TwoFingerGesture { undecided, scroll, zoom }
@@ -276,9 +276,10 @@ class _MouseTouchpadState extends State<MouseTouchpad> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     return Semantics(
-      label: 'Touchpad',
+      label: l10n.touchpad,
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: _down,
@@ -301,14 +302,12 @@ class _MouseTouchpadState extends State<MouseTouchpad> {
                 Icon(Icons.touch_app_outlined, color: colors.primary, size: 32),
                 const SizedBox(height: 8),
                 Text(
-                  widget.dragMode
-                      ? 'Arraste para selecionar'
-                      : 'Deslize para mover',
+                  widget.dragMode ? l10n.dragToSelect : l10n.swipeToMove,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Toque para clicar',
+                  l10n.tapToClick,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),

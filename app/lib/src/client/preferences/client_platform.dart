@@ -25,6 +25,11 @@ class ClientPlatform {
     });
   }
 
+  static Future<void> setLanguage(String language) async {
+    if (!_isAndroid) return;
+    await _channel.invokeMethod<void>('setLanguage', {'language': language});
+  }
+
   static Future<void> applyDisplay(
     ClientPreferences preferences, {
     required bool controlling,

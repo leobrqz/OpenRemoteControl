@@ -1,7 +1,7 @@
 {
   "name": "open-remote-control-dashboard",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test test/*.test.mjs"

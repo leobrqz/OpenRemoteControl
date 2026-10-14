@@ -8,12 +8,11 @@ import 'package:open_remote_core/open_remote_core.dart';
 import '../repositories/preferences_repository.dart';
 
 enum ControlPage {
-  mouse('Mouse', Icons.touch_app_outlined),
-  media('Mídia', Icons.graphic_eq_rounded),
-  keyboard('Teclado', Icons.keyboard_outlined);
+  mouse(Icons.touch_app_outlined),
+  media(Icons.graphic_eq_rounded),
+  keyboard(Icons.keyboard_outlined);
 
-  const ControlPage(this.label, this.icon);
-  final String label;
+  const ControlPage(this.icon);
   final IconData icon;
 }
 
@@ -50,6 +49,7 @@ class ClientPreferences {
     this.fullscreen = false,
     this.keepScreenAwake = false,
     this.swipeToOpenMenu = false,
+    this.language = 'en-US',
   });
 
   final bool multiTouch, invertScroll, swapButtons, limitMouseUpdates;
@@ -64,6 +64,9 @@ class ClientPreferences {
   final ControlLayout controlLayout;
   final ScreenOrientation orientation;
   final bool hapticFeedback, fullscreen, keepScreenAwake, swipeToOpenMenu;
+  final String language;
+  Locale get locale =>
+      language == 'pt-BR' ? const Locale('pt', 'BR') : const Locale('en', 'US');
 
   ClientPreferences copyWith({
     bool? multiTouch,
@@ -89,6 +92,7 @@ class ClientPreferences {
     bool? fullscreen,
     bool? keepScreenAwake,
     bool? swipeToOpenMenu,
+    String? language,
   }) {
     final controls = Set<ControlPage>.unmodifiable(
       visibleControls == null || visibleControls.isEmpty
@@ -127,6 +131,9 @@ class ClientPreferences {
       fullscreen: fullscreen ?? this.fullscreen,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       swipeToOpenMenu: swipeToOpenMenu ?? this.swipeToOpenMenu,
+      language: language == 'pt-BR' || language == 'en-US'
+          ? language!
+          : this.language,
     );
   }
 
@@ -154,6 +161,7 @@ class ClientPreferences {
     'fullscreen': fullscreen,
     'keepScreenAwake': keepScreenAwake,
     'swipeToOpenMenu': swipeToOpenMenu,
+    'language': language,
   };
 
   factory ClientPreferences.fromJson(Map<String, dynamic> json) {
@@ -195,6 +203,7 @@ class ClientPreferences {
       fullscreen: flag('fullscreen'),
       keepScreenAwake: flag('keepScreenAwake'),
       swipeToOpenMenu: flag('swipeToOpenMenu'),
+      language: json['language'] == 'pt-BR' ? 'pt-BR' : 'en-US',
     );
   }
 }
@@ -211,7 +220,7 @@ class PreferencesController extends ChangeNotifier {
   ClientPreferences _value = const ClientPreferences();
   Future<void> _writes = Future<void>.value();
   bool _disposed = false;
-  String? saveError;
+  String? saveErrorCode;
   ClientPreferences get value => _value;
 
   Future<void> load() async {
@@ -235,17 +244,17 @@ class PreferencesController extends ChangeNotifier {
 
   Future<void> update(ClientPreferences value) {
     _value = value;
-    saveError = null;
+    saveErrorCode = null;
     notifyListeners();
     final raw = jsonEncode(value.toJson());
     _writes = _writes.then((_) => _repository.write(raw)).catchError((
       Object error,
       StackTrace stack,
     ) async {
-      saveError = 'Não foi possível salvar as configurações.';
+      saveErrorCode = 'saveFailed';
       await DiagnosticLog.record(
         'Android',
-        saveError!,
+        'Failed to save client preferences.',
         error: error,
         stackTrace: stack,
       );

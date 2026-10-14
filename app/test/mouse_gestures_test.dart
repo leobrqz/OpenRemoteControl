@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_remote_control/src/client/controls/mouse_control.dart';
 import 'package:open_remote_control/src/client/controls/remote_actions.dart';
@@ -18,6 +19,9 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('pt', 'BR'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Center(
             child: SizedBox(

@@ -1,7 +1,7 @@
 name: open_remote_control
 description: "Controle remoto open source para Windows via rede local"
 publish_to: 'none'
-version: 0.4.0+10
+version: 0.4.1+11
 
 environment:
   sdk: ^3.12.1
@@ -10,6 +10,9 @@ dependencies:
   cryptography: 2.9.0
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   flutter_secure_storage: 11.2.0
   mobile_scanner: 7.4.2
   open_remote_core:
@@ -24,6 +27,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
   assets:
     - assets/branding/mark.svg
     - assets/branding/mark.png

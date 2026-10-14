@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 import 'about_page.dart';
 import 'about_service.dart';
 import 'client_drawer.dart';
+import 'client_localization.dart';
 import 'client_service.dart';
 import 'computers_page.dart';
 import 'controls/keyboard_control.dart';
@@ -70,7 +72,14 @@ class _ClientScreenState extends State<ClientScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(notice.message)));
+        ..showSnackBar(
+          SnackBar(
+            content: Builder(
+              builder: (context) =>
+                  Text(notice.message.localized(AppLocalizations.of(context)!)),
+            ),
+          ),
+        );
     });
   }
 
@@ -127,21 +136,20 @@ class _ClientScreenState extends State<ClientScreen>
   }
 
   Future<void> _forget(SavedHost host) async {
+    final l10n = AppLocalizations.of(context)!;
     final forget = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Esquecer ${host.name}?'),
-        content: const Text(
-          'Será necessário autorizar este celular novamente para conectar.',
-        ),
+        title: Text(l10n.forgetHostTitle(host.name)),
+        content: Text(l10n.forgetHostBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Esquecer'),
+            child: Text(l10n.forget),
           ),
         ],
       ),
@@ -151,6 +159,7 @@ class _ClientScreenState extends State<ClientScreen>
   }
 
   Widget _controls() {
+    final l10n = AppLocalizations.of(context)!;
     final active =
         _destination == ClientDestination.controls &&
         _foreground &&
@@ -166,10 +175,11 @@ class _ClientScreenState extends State<ClientScreen>
                 if (_service.isConnecting) const LinearProgressIndicator(),
                 Text(
                   _service.isConnecting
-                      ? 'Reconectando…'
+                      ? l10n.reconnecting
                       : _preferences.showConnectionErrors
-                      ? _service.lastError ?? 'Desconectado'
-                      : 'Desconectado',
+                      ? (_service.lastError?.localized(l10n) ??
+                            l10n.disconnected)
+                      : l10n.disconnected,
                 ),
                 Wrap(
                   spacing: 8,
@@ -178,11 +188,11 @@ class _ClientScreenState extends State<ClientScreen>
                       onPressed: _service.isConnecting || _retrying
                           ? null
                           : _model.reconnect,
-                      child: const Text('Reconectar'),
+                      child: Text(l10n.reconnect),
                     ),
                     TextButton(
                       onPressed: _service.disconnect,
-                      child: const Text('Desconectar'),
+                      child: Text(l10n.disconnect),
                     ),
                   ],
                 ),
@@ -214,6 +224,7 @@ class _ClientScreenState extends State<ClientScreen>
   }
 
   Widget _buildShell(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final controls = ControlPage.values
         .where(_preferences.visibleControls.contains)
         .toList();
@@ -229,6 +240,12 @@ class _ClientScreenState extends State<ClientScreen>
           control: _control,
           preferences: _preferences,
           hasSession: _service.hasSession,
+          language: _preferences.language,
+          onLanguageChanged: (language) => unawaited(
+            widget.preferences.update(
+              _preferences.copyWith(language: language),
+            ),
+          ),
           select: (destination, control) {
             Navigator.pop(context);
             _select(destination, control);
@@ -237,11 +254,11 @@ class _ClientScreenState extends State<ClientScreen>
         appBar: AppBar(
           title: Text(
             switch (_destination) {
-              ClientDestination.computers => 'Computadores',
-              ClientDestination.settings => 'Configurações',
-              ClientDestination.about => 'Sobre',
+              ClientDestination.computers => l10n.computers,
+              ClientDestination.settings => l10n.settings,
+              ClientDestination.about => l10n.about,
               ClientDestination.controls =>
-                '${_control.label} · ${_service.currentHost?.name ?? 'PC'}',
+                '${_control.localizedLabel(l10n)} · ${_service.currentHost?.name ?? 'PC'}',
             },
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -249,27 +266,27 @@ class _ClientScreenState extends State<ClientScreen>
           actions: [
             if (_destination == ClientDestination.computers) ...[
               IconButton(
-                tooltip: 'Procurar computadores',
+                tooltip: l10n.searchComputers,
                 onPressed: _service.isDiscovering || _service.isConnecting
                     ? null
                     : () => _model.discover(showError: true),
                 icon: const Icon(Icons.refresh),
               ),
               PopupMenuButton<String>(
-                tooltip: 'Adicionar computador',
+                tooltip: l10n.addComputer,
                 enabled: !_service.isConnecting,
                 icon: const Icon(Icons.add),
                 onSelected: (choice) =>
                     choice == 'qr' ? unawaited(_scan()) : unawaited(_manual()),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'qr', child: Text('Escanear QR')),
-                  PopupMenuItem(value: 'ip', child: Text('Conectar por IP')),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'qr', child: Text(l10n.scanQr)),
+                  PopupMenuItem(value: 'ip', child: Text(l10n.connectByIp)),
                 ],
               ),
             ],
             if (_destination == ClientDestination.controls)
               IconButton(
-                tooltip: 'Desconectar',
+                tooltip: l10n.disconnect,
                 onPressed: _service.disconnect,
                 icon: const Icon(Icons.link_off_rounded),
               ),
@@ -335,7 +352,7 @@ class _ClientScreenState extends State<ClientScreen>
                   for (final page in controls)
                     NavigationDestination(
                       icon: Icon(page.icon),
-                      label: page.label,
+                      label: page.localizedLabel(l10n),
                     ),
                 ],
               )

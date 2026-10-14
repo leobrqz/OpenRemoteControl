@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +108,7 @@ void main() {
     await p.update(
       p.value.copyWith(
         automaticDiscovery: false,
+        language: 'pt-BR',
         updateServerAddress: false,
         hapticFeedback: false,
       ),
@@ -142,7 +144,7 @@ void main() {
       await tester.tap(find.text('Inverter rolagem'));
       await tester.pumpAndSettle();
       expect(p.value.invertScroll, true);
-      await tester.pageBack();
+      await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Aparência e controles'));
       await tester.pumpAndSettle();
@@ -174,6 +176,9 @@ void main() {
       final service = _FakeService();
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('pt', 'BR'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ClientScreen(preferences: p, service: service),
         ),
       );
@@ -224,6 +229,9 @@ void main() {
         ..session = true;
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('pt', 'BR'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ClientScreen(preferences: p, service: service),
         ),
       );
@@ -264,6 +272,9 @@ void main() {
     final service = _FakeService();
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('pt', 'BR'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -297,6 +308,9 @@ void main() {
       final service = _FakeService();
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('pt', 'BR'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ClientScreen(preferences: p, service: service),
         ),
       );

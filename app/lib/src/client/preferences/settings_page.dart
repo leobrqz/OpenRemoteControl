@@ -1,7 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:open_remote_core/open_remote_core.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 
+import '../client_localization.dart';
 import 'client_platform.dart';
 import 'client_preferences.dart';
 
@@ -28,86 +32,102 @@ class SettingsPage extends StatelessWidget {
       );
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    children: [
-      for (final section in _Section.values)
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        for (final section in _Section.values)
+          ListTile(
+            leading: Icon(section.icon),
+            title: Text(section.label(l10n)),
+            subtitle: Text(section.description(l10n)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _open(context, section),
+          ),
+        const Divider(),
         ListTile(
-          leading: Icon(section.icon),
-          title: Text(section.label),
-          subtitle: Text(section.description),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _open(context, section),
+          leading: const Icon(Icons.computer_outlined),
+          title: Text(l10n.manageComputers),
+          onTap: onComputers,
         ),
-      const Divider(),
-      ListTile(
-        leading: const Icon(Icons.computer_outlined),
-        title: const Text('Gerenciar computadores'),
-        onTap: onComputers,
-      ),
-      ListTile(
-        leading: const Icon(Icons.copy_outlined),
-        title: const Text('Copiar diagnóstico'),
-        onTap: onDiagnostics,
-      ),
-      ListTile(
-        leading: const Icon(Icons.restore_rounded),
-        title: const Text('Restaurar configurações'),
-        onTap: () async {
-          final restore = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Restaurar configurações?'),
-              content: const Text('Os computadores pareados serão mantidos.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancelar'),
+        ListTile(
+          leading: const Icon(Icons.copy_outlined),
+          title: Text(l10n.copyDiagnostics),
+          onTap: onDiagnostics,
+        ),
+        ListTile(
+          leading: const Icon(Icons.restore_rounded),
+          title: Text(l10n.restoreSettings),
+          onTap: () async {
+            final restore = await showDialog<bool>(
+              context: context,
+              builder: (context) {
+                final dialogL10n = AppLocalizations.of(context)!;
+                return AlertDialog(
+                  title: Text(dialogL10n.restoreSettingsQuestion),
+                  content: Text(dialogL10n.pairedComputersKept),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(dialogL10n.cancel),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(dialogL10n.restore),
+                    ),
+                  ],
+                );
+              },
+            );
+            if (restore == true) {
+              await preferences.update(
+                ClientPreferences().copyWith(
+                  language: preferences.value.language,
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Restaurar'),
+              );
+            }
+          },
+        ),
+        ListenableBuilder(
+          listenable: preferences,
+          builder: (context, _) => preferences.saveErrorCode == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    l10n.saveFailed,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
-              ],
-            ),
-          );
-          if (restore == true) {
-            await preferences.update(const ClientPreferences());
-          }
-        },
-      ),
-      ListenableBuilder(
-        listenable: preferences,
-        builder: (context, _) => preferences.saveError == null
-            ? const SizedBox.shrink()
-            : Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  preferences.saveError!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-      ),
-    ],
-  );
+        ),
+      ],
+    );
+  }
 }
 
-enum _Section {
-  mouse('Mouse', 'Gestos, sensibilidade e botões', Icons.mouse_outlined),
-  connection(
-    'Conexão',
-    'Descoberta, reconexão e segundo plano',
-    Icons.wifi_rounded,
-  ),
-  appearance(
-    'Aparência e controles',
-    'Tema, navegação e tela',
-    Icons.tune_rounded,
-  );
+enum _Section { mouse, connection, appearance }
 
-  const _Section(this.label, this.description, this.icon);
-  final String label, description;
-  final IconData icon;
+extension on _Section {
+  IconData get icon => switch (this) {
+    _Section.mouse => Icons.mouse_outlined,
+    _Section.connection => Icons.wifi_rounded,
+    _Section.appearance => Icons.tune_rounded,
+  };
+
+  String label(AppLocalizations l10n) => switch (this) {
+    _Section.mouse => l10n.mouseSettings,
+    _Section.connection => l10n.connectionSettings,
+    _Section.appearance => l10n.appearanceSettings,
+  };
+
+  String description(AppLocalizations l10n) => switch (this) {
+    _Section.mouse => l10n.mouseSettingsDescription,
+    _Section.connection => l10n.connectionSettingsDescription,
+    _Section.appearance => l10n.appearanceSettingsDescription,
+  };
 }
 
 class _SettingsSection extends StatefulWidget {
@@ -125,6 +145,7 @@ class _SettingsSection extends StatefulWidget {
 
 class _SettingsSectionState extends State<_SettingsSection> {
   bool _requestingBackground = false;
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
   void _save(ClientPreferences value) =>
       unawaited(widget.preferences.update(value));
 
@@ -145,19 +166,31 @@ class _SettingsSectionState extends State<_SettingsSection> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Permita as notificações para manter a conexão em segundo plano.',
+          SnackBar(
+            content: Builder(
+              builder: (context) => Text(
+                AppLocalizations.of(context)!.notificationPermissionBackground,
+              ),
             ),
           ),
         );
       }
-    } catch (_) {
+    } catch (error, stack) {
+      try {
+        await DiagnosticLog.record(
+          'Android',
+          'Failed to enable background connection.',
+          error: error,
+          stackTrace: stack,
+        );
+      } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Não foi possível ativar a conexão em segundo plano.',
+          SnackBar(
+            content: Builder(
+              builder: (context) => Text(
+                AppLocalizations.of(context)!.backgroundConnectionFailed,
+              ),
             ),
           ),
         );
@@ -180,40 +213,48 @@ class _SettingsSectionState extends State<_SettingsSection> {
   );
 
   Widget _choice<T>(
-    String title,
+    String Function(AppLocalizations) titleFor,
     T value,
-    Map<T, String> choices,
+    Map<T, String> Function(AppLocalizations) choicesFor,
     ValueChanged<T> changed,
-  ) => ListTile(
-    title: Text(title),
-    subtitle: Text(choices[value]!),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: () async {
-      final selected = await showDialog<T>(
-        context: context,
-        builder: (context) => SimpleDialog(
-          title: Text(title),
-          children: [
-            RadioGroup<T>(
-              groupValue: value,
-              onChanged: (choice) => Navigator.pop(context, choice),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final entry in choices.entries)
-                    RadioListTile<T>(
-                      title: Text(entry.value),
-                      value: entry.key,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-      if (selected != null && mounted) changed(selected);
-    },
-  );
+  ) {
+    final title = titleFor(_l10n);
+    final choices = choicesFor(_l10n);
+    return ListTile(
+      title: Text(title),
+      subtitle: Text(choices[value]!),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        final selected = await showDialog<T>(
+          context: context,
+          builder: (dialogContext) {
+            final dialogL10n = AppLocalizations.of(dialogContext)!;
+            final dialogChoices = choicesFor(dialogL10n);
+            return SimpleDialog(
+              title: Text(titleFor(dialogL10n)),
+              children: [
+                RadioGroup<T>(
+                  groupValue: value,
+                  onChanged: (choice) => Navigator.pop(dialogContext, choice),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final entry in dialogChoices.entries)
+                        RadioListTile<T>(
+                          title: Text(entry.value),
+                          value: entry.key,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+        if (selected != null && mounted) changed(selected);
+      },
+    );
+  }
 
   Widget _sensitivity(
     String title,
@@ -232,7 +273,7 @@ class _SettingsSectionState extends State<_SettingsSection> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            Text('${value.toStringAsFixed(2)}×'),
+            Text(_multiplier(value)),
           ],
         ),
         Slider(
@@ -240,76 +281,79 @@ class _SettingsSectionState extends State<_SettingsSection> {
           min: 0.25,
           max: 4,
           divisions: 75,
-          label: '${value.toStringAsFixed(2)}×',
+          label: _multiplier(value),
           onChanged: changed,
         ),
       ],
     ),
   );
 
+  String _multiplier(double value) =>
+      '${NumberFormat.decimalPatternDigits(locale: _l10n.localeName, decimalDigits: 2).format(value)}\u00D7';
+
   List<Widget> _mouse(ClientPreferences p) => [
     _toggle(
-      'Multi-touch',
-      'Dois dedos para rolar; toque com dois dedos para o botão secundário.',
+      _l10n.multiTouch,
+      _l10n.multiTouchDescription,
       p.multiTouch,
       (v) => _save(p.copyWith(multiTouch: v)),
     ),
     _toggle(
-      'Inverter rolagem',
+      _l10n.invertScroll,
       null,
       p.invertScroll,
       (v) => _save(p.copyWith(invertScroll: v)),
     ),
     _toggle(
-      'Inverter botões',
-      'Trocar os botões primário e secundário.',
+      _l10n.swapButtons,
+      _l10n.swapButtonsDescription,
       p.swapButtons,
       (v) => _save(p.copyWith(swapButtons: v)),
     ),
     _toggle(
-      'Limitar atualizações do mouse',
+      _l10n.limitMouseUpdates,
       null,
       p.limitMouseUpdates,
       (v) => _save(p.copyWith(limitMouseUpdates: v)),
     ),
     if (p.limitMouseUpdates)
       _choice(
-        'Atualizações por segundo',
+        (l10n) => l10n.updatesPerSecond,
         p.mouseUpdateRate,
-        const {30: '30', 60: '60', 120: '120'},
+        (_) => const {30: '30', 60: '60', 120: '120'},
         (v) => _save(p.copyWith(mouseUpdateRate: v)),
       ),
     _toggle(
-      'Zoom com gestos',
-      'Pinça para ampliar ou reduzir.',
+      _l10n.gestureZoom,
+      _l10n.gestureZoomDescription,
       p.pinchZoom,
       p.multiTouch ? (v) => _save(p.copyWith(pinchZoom: v)) : null,
     ),
     _sensitivity(
-      'Sensibilidade do ponteiro',
+      _l10n.pointerSensitivity,
       p.pointerSensitivity,
       (v) => _save(p.copyWith(pointerSensitivity: v)),
     ),
     _sensitivity(
-      'Sensibilidade da rolagem',
+      _l10n.scrollSensitivity,
       p.scrollSensitivity,
       (v) => _save(p.copyWith(scrollSensitivity: v)),
     ),
     _toggle(
-      'Arrastar com toque duplo',
-      'Toque duas vezes e mantenha o segundo toque para arrastar.',
+      _l10n.doubleTapDrag,
+      _l10n.doubleTapDragDescription,
       p.doubleTapDrag,
       (v) => _save(p.copyWith(doubleTapDrag: v)),
     ),
     _toggle(
-      'Abrir menu deslizando',
-      'Desative para evitar abrir o menu ao usar o mouse.',
+      _l10n.swipeToOpenMenu,
+      _l10n.swipeToOpenMenuDescription,
       p.swipeToOpenMenu,
       (v) => _save(p.copyWith(swipeToOpenMenu: v)),
     ),
     ListTile(
       leading: const Icon(Icons.touch_app_outlined),
-      title: const Text('Testar mouse'),
+      title: Text(_l10n.testMouse),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         Navigator.pop(context);
@@ -320,31 +364,31 @@ class _SettingsSectionState extends State<_SettingsSection> {
 
   List<Widget> _connection(ClientPreferences p) => [
     _toggle(
-      'Descoberta automática',
-      'Procurar computadores na rede Wi-Fi.',
+      _l10n.automaticDiscovery,
+      _l10n.automaticDiscoveryDescription,
       p.automaticDiscovery,
       (v) => _save(p.copyWith(automaticDiscovery: v)),
     ),
     _toggle(
-      'Atualizar IP dos computadores',
-      'Salvar o endereço encontrado quando o IP mudar.',
+      _l10n.updateComputerIp,
+      _l10n.updateComputerIpDescription,
       p.updateServerAddress,
       (v) => _save(p.copyWith(updateServerAddress: v)),
     ),
     _toggle(
-      'Reconectar automaticamente',
-      'Tentar novamente quando a conexão cair.',
+      _l10n.automaticReconnect,
+      _l10n.automaticReconnectDescription,
       p.autoReconnect,
       (v) => _save(p.copyWith(autoReconnect: v)),
     ),
     _toggle(
-      'Manter conexão em segundo plano',
-      'Exibir uma notificação enquanto o PC estiver conectado.',
+      _l10n.keepBackgroundConnection,
+      _l10n.keepBackgroundConnectionDescription,
       p.keepConnectionInBackground,
       _requestingBackground ? null : _background,
     ),
     _toggle(
-      'Mostrar erros de conexão',
+      _l10n.showConnectionErrors,
       null,
       p.showConnectionErrors,
       (v) => _save(p.copyWith(showConnectionErrors: v)),
@@ -352,26 +396,31 @@ class _SettingsSectionState extends State<_SettingsSection> {
   ];
 
   List<Widget> _appearance(ClientPreferences p) => [
-    _choice('Tema', p.themeMode, const {
-      ThemeMode.system: 'Sistema',
-      ThemeMode.light: 'Claro',
-      ThemeMode.dark: 'Escuro',
-    }, (v) => _save(p.copyWith(themeMode: v))),
     _choice(
-      'Controle inicial',
+      (l10n) => l10n.theme,
+      p.themeMode,
+      (l10n) => {
+        ThemeMode.system: l10n.system,
+        ThemeMode.light: l10n.light,
+        ThemeMode.dark: l10n.dark,
+      },
+      (v) => _save(p.copyWith(themeMode: v)),
+    ),
+    _choice(
+      (l10n) => l10n.initialControl,
       p.defaultControl,
-      {
+      (l10n) => {
         for (final page in ControlPage.values.where(p.visibleControls.contains))
-          page: page.label,
+          page: page.localizedLabel(l10n),
       },
       (v) => _save(p.copyWith(defaultControl: v)),
     ),
     _choice(
-      'Navegação dos controles',
+      (l10n) => l10n.controlNavigation,
       p.controlLayout,
-      const {
-        ControlLayout.tabs: 'Barra inferior',
-        ControlLayout.drawer: 'Menu lateral',
+      (l10n) => {
+        ControlLayout.tabs: l10n.bottomBar,
+        ControlLayout.drawer: l10n.sideMenu,
       },
       (v) => _save(p.copyWith(controlLayout: v)),
     ),
@@ -379,13 +428,13 @@ class _SettingsSectionState extends State<_SettingsSection> {
     Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Text(
-        'Controles visíveis',
+        _l10n.visibleControls,
         style: Theme.of(context).textTheme.titleSmall,
       ),
     ),
     for (final page in ControlPage.values)
       CheckboxListTile(
-        title: Text(page.label),
+        title: Text(page.localizedLabel(_l10n)),
         secondary: Icon(page.icon),
         value: p.visibleControls.contains(page),
         onChanged:
@@ -402,26 +451,31 @@ class _SettingsSectionState extends State<_SettingsSection> {
               },
       ),
     const Divider(),
-    _choice('Orientação da tela', p.orientation, const {
-      ScreenOrientation.automatic: 'Automática',
-      ScreenOrientation.portrait: 'Retrato',
-      ScreenOrientation.landscape: 'Paisagem',
-    }, (v) => _save(p.copyWith(orientation: v))),
+    _choice(
+      (l10n) => l10n.screenOrientation,
+      p.orientation,
+      (l10n) => {
+        ScreenOrientation.automatic: l10n.automatic,
+        ScreenOrientation.portrait: l10n.portrait,
+        ScreenOrientation.landscape: l10n.landscape,
+      },
+      (v) => _save(p.copyWith(orientation: v)),
+    ),
     _toggle(
-      'Retorno vibratório',
-      'Vibrar ao clicar e enviar comandos.',
+      _l10n.hapticFeedback,
+      _l10n.hapticFeedbackDescription,
       p.hapticFeedback,
       (v) => _save(p.copyWith(hapticFeedback: v)),
     ),
     _toggle(
-      'Tela inteira',
-      'Ocultar as barras do sistema.',
+      _l10n.fullscreen,
+      _l10n.fullscreenDescription,
       p.fullscreen,
       (v) => _save(p.copyWith(fullscreen: v)),
     ),
     _toggle(
-      'Manter tela acesa',
-      'Enquanto um controle estiver aberto.',
+      _l10n.keepScreenAwake,
+      _l10n.keepScreenAwakeDescription,
       p.keepScreenAwake,
       (v) => _save(p.copyWith(keepScreenAwake: v)),
     ),
@@ -429,7 +483,7 @@ class _SettingsSectionState extends State<_SettingsSection> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.section.label)),
+    appBar: AppBar(title: Text(widget.section.label(_l10n))),
     body: ListenableBuilder(
       listenable: widget.preferences,
       builder: (context, _) => ListView(

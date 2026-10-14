@@ -1,7 +1,6 @@
 package org.openremotecontrol.open_remote_control
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -33,13 +32,18 @@ class AndroidUpdateService : Service() {
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
     private var timeoutTask: Runnable? = null
-    private var notificationStrings = NotificationStrings()
+    @Volatile private var notificationStrings = AppNotificationLanguage.updateCopy(AppLanguage.ENGLISH)
+    @Volatile private var currentReceived = 0L
+    @Volatile private var currentTotal = 0L
     @Volatile private var serviceToken: Long? = null
     @Volatile private var serviceStartId: Int? = null
+    private val languageListener: (AppLanguage) -> Unit = { refreshLocalizedNotification(it) }
 
     override fun onCreate() {
         super.onCreate()
-        ensureNotificationChannel(notificationStrings.channelName)
+        notificationStrings = AppNotificationLanguage.updateCopy(AppNotificationLanguage.current(this))
+        AppNotificationLanguage.observe(languageListener)
+        AppNotificationLanguage.updateChannels(this, AppNotificationLanguage.current(this))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -58,8 +62,10 @@ class AndroidUpdateService : Service() {
             AndroidUpdateRuntime.finishOperation(token)
             stopSelf(startId); return START_NOT_STICKY
         }
-        notificationStrings = NotificationStrings.from(intent ?: return START_NOT_STICKY)
-        ensureNotificationChannel(notificationStrings.channelName)
+        notificationStrings = AppNotificationLanguage.updateCopy(AppNotificationLanguage.current(this))
+        AppNotificationLanguage.updateChannels(this, AppNotificationLanguage.current(this))
+        currentReceived = 0L
+        currentTotal = (AndroidUpdateRuntime.snapshot()["totalBytes"] as? Number)?.toLong() ?: 0L
         cancelled.set(false)
         serviceToken = token
         serviceStartId = startId
@@ -101,11 +107,15 @@ class AndroidUpdateService : Service() {
                 ensureActive(token)
                 if (!part.renameTo(apk)) throw UpdateFailure("storage", "Downloaded APK could not be saved in private storage.")
                 AndroidUpdateRuntime.validating(token)
+                currentReceived = candidate.size
+                currentTotal = candidate.size
                 if (AndroidUpdateRuntime.owns(token)) safeNotify(
                     notification(candidate.size, candidate.size, notificationStrings.validating))
                 AndroidUpdateRuntime.validate(this, candidate, apk) { !isActive(token) }
                 ensureActive(token)
                 AndroidUpdateRuntime.ready(token)
+                currentReceived = candidate.size
+                currentTotal = candidate.size
                 if (AndroidUpdateRuntime.operationState(token) == "ready") safeNotify(readyNotification())
                 stopForeground(STOP_FOREGROUND_DETACH)
                 stopSelf(startId)
@@ -199,6 +209,8 @@ class AndroidUpdateService : Service() {
             output.write(buffer, 0, count)
             if (received - lastPublishedAt >= PROGRESS_STEP || received == total) {
                 lastPublishedAt = received
+                currentReceived = received
+                currentTotal = total
                 AndroidUpdateRuntime.progress(token, received, total)
                 if (AndroidUpdateRuntime.operationState(token) == "downloading")
                     safeNotify(notification(received, total, notificationStrings.downloading))
@@ -277,13 +289,19 @@ class AndroidUpdateService : Service() {
         wakeLock = null
     }
 
-    private fun ensureNotificationChannel(name: String) {
-        if (Build.VERSION.SDK_INT >= 26) notificationManager().createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_LOW),
-        )
+    private fun refreshLocalizedNotification(language: AppLanguage) {
+        notificationStrings = AppNotificationLanguage.updateCopy(language)
+        AppNotificationLanguage.updateChannels(this, language)
+        val token = serviceToken ?: return
+        when (AndroidUpdateRuntime.operationState(token)) {
+            "downloading" -> safeNotify(notification(currentReceived, currentTotal, notificationStrings.downloading))
+            "validating" -> safeNotify(notification(currentReceived, currentTotal, notificationStrings.validating))
+            "ready" -> safeNotify(readyNotification())
+        }
     }
 
     override fun onDestroy() {
+        AppNotificationLanguage.stopObserving(languageListener)
         cancelled.set(true)
         connection?.disconnect(); connection = null
         timeoutTask?.let(timeoutHandler::removeCallbacks); timeoutTask = null
@@ -305,27 +323,11 @@ class AndroidUpdateService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(startId)
     }
 
-    private data class NotificationStrings(val title: String = "Open Remote Control",
-        val downloading: String = "Downloading update", val validating: String = "Checking update",
-        val ready: String = "Update is ready to install", val cancel: String = "Cancel",
-        val channelName: String = "App updates") {
-        companion object {
-            fun from(intent: Intent) = NotificationStrings(
-                intent.getStringExtra("title") ?: "Open Remote Control",
-                intent.getStringExtra("downloading") ?: "Downloading update",
-                intent.getStringExtra("validating") ?: "Checking update",
-                intent.getStringExtra("ready") ?: "Update is ready to install",
-                intent.getStringExtra("cancel") ?: "Cancel",
-                intent.getStringExtra("channelName") ?: "App updates",
-            )
-        }
-    }
-
     companion object {
         const val ACTION_CANCEL = "org.openremotecontrol.open_remote_control.CANCEL_UPDATE"
         const val EXTRA_CANDIDATE = "candidate_json"
         const val EXTRA_TOKEN = "operation_token"
-        private const val CHANNEL_ID = "open_remote_updates"
+        const val CHANNEL_ID = "open_remote_updates"
         private const val NOTIFICATION_ID = 47656
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 30_000
@@ -333,5 +335,23 @@ class AndroidUpdateService : Service() {
         private const val MIN_FREE_SPACE = 8L * 1024 * 1024
         private const val PROGRESS_STEP = 256L * 1024
         private const val WAKE_LOCK_TIMEOUT_MS = 2L * 60 * 60 * 1000
+
+        /** Refreshes a ready notification after its foreground service has stopped. */
+        fun refreshReadyNotification(context: android.content.Context) {
+            if (AndroidUpdateRuntime.snapshot()["state"] !in
+                setOf("ready", "installationCancelled", "installing", "permissionRequired")) return
+            val language = AppNotificationLanguage.current(context)
+            val copy = AppNotificationLanguage.updateCopy(language)
+            AppNotificationLanguage.updateChannels(context, language)
+            val activity = PendingIntent.getActivity(context, 0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .setContentTitle(copy.title).setContentText(copy.ready)
+                .setContentIntent(activity).setAutoCancel(true).setOnlyAlertOnce(true).build()
+            try { context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification) }
+            catch (_: SecurityException) { }
+        }
     }
 }

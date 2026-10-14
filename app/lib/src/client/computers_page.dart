@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 import 'package:open_remote_core/open_remote_core.dart';
 import 'client_service.dart';
@@ -32,6 +33,7 @@ class ComputersPage extends StatelessWidget {
     required VoidCallback connect,
     SavedHost? saved,
   }) {
+    final l10n = AppLocalizations.of(context)!;
     final connected =
         service.isConnected && service.currentHost?.serverId == id;
     return Card(
@@ -45,10 +47,10 @@ class ComputersPage extends StatelessWidget {
           title: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             '${connected
-                ? 'Conectado'
+                ? l10n.connected
                 : paired
-                ? 'Pareado'
-                : 'Disponível'} · $address',
+                ? l10n.paired
+                : l10n.available} · $address',
           ),
           onTap: service.isConnecting
               ? null
@@ -56,7 +58,7 @@ class ComputersPage extends StatelessWidget {
               ? onOpenControls
               : connect,
           trailing: PopupMenuButton<String>(
-            tooltip: 'Opções do computador',
+            tooltip: l10n.computerOptions,
             enabled: !service.isConnecting,
             onSelected: (choice) {
               if (choice == 'forget' && saved != null) {
@@ -70,16 +72,16 @@ class ComputersPage extends StatelessWidget {
                 value: 'connect',
                 child: Text(
                   connected
-                      ? 'Abrir controles'
+                      ? l10n.openControls
                       : paired
-                      ? 'Conectar'
-                      : 'Solicitar conexão',
+                      ? l10n.connect
+                      : l10n.requestConnection,
                 ),
               ),
               if (saved != null)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'forget',
-                  child: Text('Esquecer computador'),
+                  child: Text(l10n.forgetComputer),
                 ),
             ],
           ),
@@ -90,6 +92,7 @@ class ComputersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final found = service.discoveredHosts;
     final unseen = savedHosts.where(
       (saved) => !found.any((host) => host.serverId == saved.serverId),
@@ -105,8 +108,8 @@ class ComputersPage extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 service.isConnecting
-                    ? 'Conectando…'
-                    : 'Procurando computadores…',
+                    ? l10n.connecting
+                    : l10n.searchingComputers,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
@@ -118,13 +121,10 @@ class ComputersPage extends StatelessWidget {
                   children: [
                     const Icon(Icons.computer_outlined, size: 40),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Nenhum computador encontrado',
-                      textAlign: TextAlign.center,
-                    ),
+                    Text(l10n.noComputersFound, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(
-                      'Inicie o servidor no PC e conecte os dois à mesma rede Wi-Fi.',
+                      l10n.startServerConnectWifi,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -132,7 +132,7 @@ class ComputersPage extends StatelessWidget {
                     TextButton.icon(
                       onPressed: onAdd,
                       icon: const Icon(Icons.add),
-                      label: const Text('Adicionar computador'),
+                      label: Text(l10n.addComputer),
                     ),
                   ],
                 ),
@@ -165,7 +165,7 @@ class ComputersPage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
-                  service.lastError!,
+                  service.lastError!.localized(l10n),
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),

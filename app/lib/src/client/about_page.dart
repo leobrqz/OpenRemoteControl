@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:open_remote_core/open_remote_core.dart';
+import '../../l10n/app_localizations.dart';
 
 import 'about_service.dart';
 import 'updates/android_update_card.dart';
@@ -41,14 +43,25 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _open(Uri uri) async {
     try {
       if (await _service.openExternal(uri)) return;
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Show the same useful recovery message for a missing handler or error.
+      await DiagnosticLog.record(
+        'Android',
+        'Failed to open an external link.',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o link.')),
+        SnackBar(
+          content: Builder(
+            builder: (context) =>
+                Text(AppLocalizations.of(context)!.openLinkFailed),
+          ),
+        ),
       );
   }
 
@@ -60,96 +73,100 @@ class _AboutPageState extends State<AboutPage> {
   );
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  Image.asset(
+                    'assets/branding/mark.png',
+                    width: 64,
+                    height: 64,
+                    excludeFromSemantics: true,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Open Remote Control',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Card(
             child: Column(
               children: [
-                Image.asset(
-                  'assets/branding/mark.png',
-                  width: 64,
-                  height: 64,
-                  excludeFromSemantics: true,
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: Text(l10n.aboutVersion),
+                  subtitle: FutureBuilder<String>(
+                    future: _version,
+                    builder: (context, snapshot) => Text(
+                      snapshot.data ??
+                          (snapshot.hasError ? l10n.unavailable : '—'),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Open Remote Control',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
+                ListTile(
+                  leading: Icon(Icons.phone_android),
+                  title: Text(l10n.platform),
+                  subtitle: Text('Android'),
+                ),
+                ListTile(
+                  leading: Icon(Icons.description_outlined),
+                  title: Text(l10n.license),
+                  subtitle: Text('GPL-3.0-only'),
                 ),
               ],
             ),
           ),
-        ),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Versão'),
-                subtitle: FutureBuilder<String>(
-                  future: _version,
-                  builder: (context, snapshot) => Text(
-                    snapshot.data ?? (snapshot.hasError ? 'Indisponível' : '—'),
-                  ),
-                ),
-              ),
-              const ListTile(
-                leading: Icon(Icons.phone_android),
-                title: Text('Plataforma'),
-                subtitle: Text('Android'),
-              ),
-              const ListTile(
-                leading: Icon(Icons.description_outlined),
-                title: Text('Licença'),
-                subtitle: Text('GPL-3.0-only'),
-              ),
-            ],
-          ),
-        ),
-        if (widget.updates != null) ...[
+          if (widget.updates != null) ...[
+            const SizedBox(height: 12),
+            AndroidUpdateCard(controller: widget.updates!),
+          ],
           const SizedBox(height: 12),
-          AndroidUpdateCard(controller: widget.updates!),
+          Text(l10n.project, style: Theme.of(context).textTheme.titleMedium),
+          _link(
+            l10n.officialWebsite,
+            Uri.parse('https://openremotecontrol.sourceforge.io/'),
+            Icons.language,
+          ),
+          _link(
+            'GitHub',
+            Uri.parse('https://github.com/leobrqz/OpenRemoteControl'),
+            Icons.code,
+          ),
+          _link(
+            'SourceForge',
+            Uri.parse('https://sourceforge.net/projects/openremotecontrol/'),
+            Icons.download_outlined,
+          ),
+          const SizedBox(height: 8),
+          Text(l10n.credits, style: Theme.of(context).textTheme.titleMedium),
+          const ListTile(
+            leading: Icon(Icons.person_outline),
+            title: Text('Leonardo Briquezi aka devpatok'),
+          ),
+          _link(
+            'leonardobriquezi.me',
+            Uri.parse('https://leonardobriquezi.me'),
+            Icons.language,
+          ),
+          _link(
+            l10n.personalGithub,
+            Uri.parse('https://github.com/leobrqz'),
+            Icons.code,
+          ),
         ],
-        const SizedBox(height: 12),
-        Text('Projeto', style: Theme.of(context).textTheme.titleMedium),
-        _link(
-          'Site oficial',
-          Uri.parse('https://openremotecontrol.sourceforge.io/'),
-          Icons.language,
-        ),
-        _link(
-          'GitHub',
-          Uri.parse('https://github.com/leobrqz/OpenRemoteControl'),
-          Icons.code,
-        ),
-        _link(
-          'SourceForge',
-          Uri.parse('https://sourceforge.net/projects/openremotecontrol/'),
-          Icons.download_outlined,
-        ),
-        const SizedBox(height: 8),
-        Text('Créditos', style: Theme.of(context).textTheme.titleMedium),
-        const ListTile(
-          leading: Icon(Icons.person_outline),
-          title: Text('Leonardo Briquezi aka devpatok'),
-        ),
-        _link(
-          'leonardobriquezi.me',
-          Uri.parse('https://leonardobriquezi.me'),
-          Icons.language,
-        ),
-        _link(
-          'GitHub pessoal',
-          Uri.parse('https://github.com/leobrqz'),
-          Icons.code,
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }

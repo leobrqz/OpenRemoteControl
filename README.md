@@ -30,6 +30,8 @@
 
 The Android menu includes saved mouse, connection, theme and display settings.
 
+Android and the Windows dashboard default to US English. Choose **English** or **Português (Brasil)** in the sidebar footer (below **About** on Android); changes apply immediately without disconnecting. Android saves its choice in the app; the dashboard saves it in the current browser profile.
+
 ## Build
 
 On Windows, install Flutter, the Android SDK, Node.js, the .NET SDK (build only) and Visual Studio's **Desktop development with C++** workload. Velopack SDK and CLI are pinned to 1.2.161. From the repository root:
@@ -61,7 +63,7 @@ Run `npm run dev` from `site/` to preview the website at `http://127.0.0.1:4173/
 2. Install the Android APK and connect both devices to the same local network.
 3. Select the discovered PC and approve the phone in the dashboard, or scan the pairing QR. Access is saved for future connections.
 
-Windows checks for updates after startup; approve downloading and restarting under **Sobre > Atualizações** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
+Windows checks for updates after startup; approve downloading and restarting under **About > Updates** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
 Keep the managed directory in place: updates retain the executable path and its existing Windows Firewall authorization.
 
-Android checks for compatible updates on startup and in **Sobre > Atualizações**. Downloads require approval, can continue in the background, and can be cancelled. Android asks for installation permission and confirmation; updating preserves saved PCs and settings. Google Play and a Google account are not required.
+Android checks for compatible updates on startup and in **About > Updates**. Downloads require approval, can continue in the background, and can be cancelled. Android asks for installation permission and confirmation; updating preserves saved PCs and settings. Google Play and a Google account are not required.

@@ -73,6 +73,17 @@ class MainActivity : FlutterActivity() {
                             } else { stopService(service) }
                             result.success(null)
                         }
+                        "setLanguage" -> {
+                            if (AppNotificationLanguage.set(
+                                this,
+                                call.argument<String>("language"),
+                            ) == null) {
+                                result.error("invalid_language", "Language must be en-US or pt-BR.", null)
+                                return@setMethodCallHandler
+                            }
+                            AndroidUpdateService.refreshReadyNotification(this)
+                            result.success(null)
+                        }
                         "setDisplayPreferences" -> {
                             fullscreen = call.argument<Boolean>("fullscreen") == true
                             if (call.argument<Boolean>("keepScreenAwake") == true) {

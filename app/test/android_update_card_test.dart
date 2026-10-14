@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:open_remote_control/l10n/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_remote_control/src/client/updates/android_update_card.dart';
 import 'package:open_remote_control/src/client/updates/android_update_controller.dart';
@@ -178,15 +179,83 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(AndroidUpdateCard), findsOneWidget);
   });
+
+  testWidgets(
+    'live update notices stay readable and retain their transfer at double text size',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fixture = await _Fixture.create(downloadGate: Completer<void>());
+      addTearDown(fixture.dispose);
+      for (final locale in [
+        const Locale('en', 'US'),
+        const Locale('pt', 'BR'),
+      ]) {
+        await _pumpPage(
+          tester,
+          fixture.controller,
+          includeNotice: true,
+          locale: locale,
+          textScale: 2,
+        );
+        expect(tester.takeException(), isNull);
+        expect(fixture.platform.downloadCalls, 0);
+      }
+      unawaited(
+        fixture.controller.approveDownload(
+          notification: androidUpdateNotification,
+        ),
+      );
+      await tester.pump();
+      fixture.platform.emit(
+        AndroidUpdateSnapshot(
+          state: AndroidUpdateState.downloading,
+          receivedBytes: 7,
+          totalBytes: 10,
+          candidate: fixture.candidate,
+        ),
+      );
+      for (final locale in [
+        const Locale('en', 'US'),
+        const Locale('pt', 'BR'),
+      ]) {
+        await _pumpPage(
+          tester,
+          fixture.controller,
+          includeNotice: true,
+          locale: locale,
+          textScale: 2,
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.text('70%'), findsOneWidget);
+        expect(fixture.platform.downloadCalls, 1);
+        expect(fixture.controller.candidate, same(fixture.candidate));
+      }
+      fixture.platform.downloadGate!.complete();
+    },
+  );
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
   AndroidUpdateController controller, {
   bool includeNotice = false,
+  Locale locale = const Locale('pt', 'BR'),
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: ListenableBuilder(
         listenable: controller,
         builder: (context, _) => Scaffold(

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 
 import 'client_destination.dart';
+import 'client_message.dart';
 import 'client_service.dart';
 import 'controls/remote_actions.dart';
 import 'preferences/client_platform.dart';
@@ -13,7 +14,7 @@ import 'preferences/client_preferences.dart';
 
 class ClientNotice {
   const ClientNotice(this.message);
-  final String message;
+  final ClientMessage message;
 }
 
 class ClientViewModel extends ChangeNotifier {
@@ -44,7 +45,7 @@ class ClientViewModel extends ChangeNotifier {
     send: service.send,
     preferences: () => preferences.value,
     connected: () => service.isConnected,
-    onError: (error) => _message(error.toString(), error: true),
+    onError: (error) => _message(ClientMessage.fromError(error), error: true),
   );
   List<SavedHost> _savedHosts = const [];
   bool _loadingHosts = true,
@@ -57,6 +58,7 @@ class ClientViewModel extends ChangeNotifier {
   Future<void>? _discovery;
   int _retryAttempt = 0;
   Object? _displayState, _backgroundState;
+  String? _platformLanguage;
   Future<void> _platformQueue = Future<void>.value();
   ClientPreferences get _preferences => preferences.value;
   ClientNotice? _notice;
@@ -69,7 +71,7 @@ class ClientViewModel extends ChangeNotifier {
   ControlPage get control => _control;
   RemoteActions get actions => _actions;
 
-  void _message(String message, {bool error = false}) {
+  void _message(ClientMessage message, {bool error = false}) {
     if (!_alive || (error && !_preferences.showConnectionErrors)) return;
     _notice = ClientNotice(message);
     notifyListeners();
@@ -89,25 +91,37 @@ class ClientViewModel extends ChangeNotifier {
       _connect(() => service.connectDiscovered(host));
   Future<void> connectManual(String address, int port) =>
       _connect(() => service.connectManual(address: address, port: port));
-  Future<void> connectQr(String raw) =>
-      _connect(() => service.connectFromQr(PairingInfo.fromQr(raw)));
+  Future<void> connectQr(String raw) => _connect(() {
+    late final PairingInfo pairing;
+    try {
+      pairing = PairingInfo.fromQr(raw);
+    } on FormatException catch (error) {
+      throw ClientMessageException(ClientMessage('invalidQr', detail: error));
+    }
+    return service.connectFromQr(pairing);
+  });
   Future<void> forgetHost(SavedHost host) async {
     try {
       await service.forgetHost(host.serverId);
       await _loadHosts();
     } catch (error) {
-      _message('Não foi possível esquecer o computador: $error', error: true);
+      await DiagnosticLog.record(
+        'Android',
+        'Failed to forget paired computer.',
+        error: error,
+      );
+      _message(const ClientMessage('forgetComputerFailed'), error: true);
     }
   }
 
   Future<void> copyDiagnostics() async {
     await Clipboard.setData(ClipboardData(text: await DiagnosticLog.export()));
-    _message('Diagnóstico copiado.');
+    _message(const ClientMessage('diagnosticsCopied'));
   }
 
   void testMouse() {
     if (!service.hasSession) {
-      _message('Conecte a um computador para testar o mouse.');
+      _message(const ClientMessage('connectToTestMouse'));
       return;
     }
     if (!_preferences.visibleControls.contains(ControlPage.mouse)) {
@@ -179,6 +193,23 @@ class ClientViewModel extends ChangeNotifier {
   void _syncPlatform() {
     if (!_alive) return;
     final p = _preferences;
+    if (_platformLanguage != p.language) {
+      _platformLanguage = p.language;
+      unawaited(
+        ClientPlatform.setLanguage(p.language).catchError((
+          Object error,
+          StackTrace stack,
+        ) async {
+          _platformLanguage = null;
+          await DiagnosticLog.record(
+            'Android',
+            'Failed to apply app language preference.',
+            error: error,
+            stackTrace: stack,
+          );
+        }),
+      );
+    }
     final controlling =
         _foreground &&
         _destination == ClientDestination.controls &&
@@ -228,7 +259,7 @@ class ClientViewModel extends ChangeNotifier {
                 _preferences.copyWith(keepConnectionInBackground: false),
               );
               _message(
-                'Não foi possível manter a conexão em segundo plano.',
+                const ClientMessage('backgroundConnectionFailed'),
                 error: true,
               );
             }
@@ -246,10 +277,12 @@ class ClientViewModel extends ChangeNotifier {
     } catch (error) {
       if (!_alive) return;
       _loadingHosts = false;
-      _message(
-        'Não foi possível ler os computadores salvos: $error',
-        error: true,
+      await DiagnosticLog.record(
+        'Android',
+        'Failed to load saved computers.',
+        error: error,
       );
+      _message(const ClientMessage('connectionFailed'), error: true);
     }
   }
 
@@ -272,7 +305,12 @@ class ClientViewModel extends ChangeNotifier {
       }
     } catch (error) {
       if (showError) {
-        _message('Falha ao procurar computadores: $error', error: true);
+        await DiagnosticLog.record(
+          'Android',
+          'Failed to discover computers.',
+          error: error,
+        );
+        _message(const ClientMessage('discoverComputersFailed'), error: true);
       }
     }
   }
@@ -333,7 +371,15 @@ class ClientViewModel extends ChangeNotifier {
       select(ClientDestination.controls, _preferences.defaultControl);
       await _loadHosts();
     } catch (error) {
-      _message(service.lastError ?? error.toString(), error: true);
+      await DiagnosticLog.record(
+        'Android',
+        'Connection attempt failed.',
+        error: error,
+      );
+      _message(
+        service.lastError ?? ClientMessage.fromError(error),
+        error: true,
+      );
     } finally {
       _connecting = false;
       _scheduleReconnect();
