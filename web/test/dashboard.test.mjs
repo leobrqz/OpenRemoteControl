@@ -23,7 +23,11 @@ const all=root=>[root,...root.children.flatMap(all)];
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
 async function dashboard(update,config={}){
-  const elements=new Map(['page','pageTitle','notice','copyLogs','appVersion','mainNav','languageLabel','languageSelect'].map(id=>[id,new Element(id)]));
+  const elements=new Map(['page','pageTitle','notice','copyLogs','appVersion','mainNav','languageControls'].map(id=>[id,new Element(id)]));
+  const languageButtons=['en-US','pt-BR'].map(language=>{
+    const label=language==='en-US'?'English':'Português (Brasil)';
+    return Object.assign(new Element('button'),{dataset:{language},attributes:{'aria-label':label,title:label}});
+  });
   const pages=['status','devices','network','logs','about'].map(page=>Object.assign(new Element('button'),{dataset:{page}}));
   const requests=[];let reloads=0,current=update,now=0;
   class FakeDate extends Date{static now(){return now;}}
@@ -31,7 +35,7 @@ async function dashboard(update,config={}){
   const location={hash:config.hash??'#about',reload:()=>reloads++};
   const window={scrollX:0,scrollY:0,addEventListener(){},scrollTo:(x,y)=>{window.scrollX=x;window.scrollY=y;}};
   const context=vm.createContext({
-    document:{documentElement:{lang:''},title:'',createElement:tag=>new Element(tag),getElementById:id=>elements.get(id),querySelectorAll:selector=>selector==='[data-page]'?pages:[]},
+    document:{documentElement:{lang:''},title:'',createElement:tag=>new Element(tag),getElementById:id=>elements.get(id),querySelectorAll:selector=>selector==='[data-page]'?pages:selector==='[data-language]'?languageButtons:[]},
     location,window,
     localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},
     navigator:{clipboard:{writeText:async()=>{}}},
@@ -48,11 +52,10 @@ async function dashboard(update,config={}){
     },
   });
   vm.runInContext(script,context);await flush();
-  return {context,elements,pages,requests,storage,location,window,setUpdate:value=>{current=value;},get reloads(){return reloads;}};
+  return {context,elements,pages,languageButtons,requests,storage,location,window,setUpdate:value=>{current=value;},get reloads(){return reloads;}};
 }
 function setLanguage(app,value){
-  const select=app.elements.get('languageSelect');
-  select.value=value;select.dispatch('change');
+  app.languageButtons.find(button=>button.dataset.language===value).click();
 }
 function pageText(app){return all(app.elements.get('page')).map(item=>item.textContent);}
 const candidate={state:'available',currentVersion:'0.3.0',availableVersion:'0.3.1',candidateId:'opaque',notes:'<img src=x onerror=alert(1)>',releaseUrl:'https://github.com/leobrqz/OpenRemoteControl/releases/tag/v0.3.1'};
@@ -61,8 +64,10 @@ test('defaults to en-US and renders the static shell in English',async()=>{
   const app=await dashboard(candidate);
   assert.equal(app.context.document.documentElement.lang,'en-US');
   assert.equal(app.context.document.title,'Open Remote Control — Server');
-  assert.equal(app.elements.get('languageSelect').value,'en-US');
-  assert.equal(app.elements.get('languageLabel').textContent,'Language');
+  assert.equal(app.elements.get('languageControls').attributes['aria-label'],'Language');
+  assert.deepEqual(app.languageButtons.map(button=>button.attributes['aria-label']),['English','Português (Brasil)']);
+  assert.deepEqual(app.languageButtons.map(button=>button.attributes.title),['English','Português (Brasil)']);
+  assert.deepEqual(app.languageButtons.map(button=>button.attributes['aria-pressed']),['true','false']);
   assert.equal(app.elements.get('pageTitle').textContent,'About');
   assert.equal(app.elements.get('mainNav').attributes['aria-label'],'Main navigation');
   assert.equal(app.elements.get('copyLogs').textContent,'Copy diagnostics');
@@ -96,7 +101,8 @@ test('language changes immediately without an action and keeps page, hash, QR an
   assert.equal(app.elements.get('pageTitle').textContent,'Dispositivos');
   assert.equal(app.location.hash,'#devices');
   assert.equal(app.context.document.documentElement.lang,'pt-BR');
-  assert.equal(app.elements.get('languageLabel').textContent,'Idioma');
+  assert.equal(app.elements.get('languageControls').attributes['aria-label'],'Idioma');
+  assert.deepEqual(app.languageButtons.map(button=>button.attributes['aria-pressed']),['false','true']);
   assert.equal(app.window.scrollY,275);
   const after=all(app.elements.get('page')).find(item=>item.tag==='img');
   assert.equal(after,before,'the current QR node is reused');
@@ -108,10 +114,12 @@ test('language choice persists independently in browser storage',async()=>{
   const storage=new Map();
   const first=await dashboard(candidate,{storage});
   setLanguage(first,'pt-BR');
+  assert.deepEqual(first.languageButtons.map(button=>button.attributes['aria-pressed']),['false','true']);
   assert.equal(storage.get('openRemoteDashboardLanguage'),'pt-BR');
   const next=await dashboard(candidate,{storage});
   assert.equal(next.context.document.documentElement.lang,'pt-BR');
-  assert.equal(next.elements.get('languageLabel').textContent,'Idioma');
+  assert.equal(next.elements.get('languageControls').attributes['aria-label'],'Idioma');
+  assert.deepEqual(next.languageButtons.map(button=>button.attributes['aria-pressed']),['false','true']);
   assert.equal(next.elements.get('pageTitle').textContent,'Sobre');
 });
 
@@ -291,10 +299,15 @@ test('HTML keeps external JavaScript and exposes the language control in the sid
   assert.equal((html.match(/<script/g)||[]).length,1);
   assert.doesNotMatch(html,/\son\w+=/i);
   assert.doesNotMatch(script,/innerHTML|eval\(|new Function/);
-  assert.match(html,/<label id="languageLabel" for="languageSelect">/);
-  assert.match(html,/<select id="languageSelect" aria-label="Language">/);
-  assert.match(html,/<option value="en-US">English<\/option>/);
-  assert.match(html,/<option value="pt-BR">Português \(Brasil\)<\/option>/);
+  assert.match(html,/<div id="languageControls"[^>]*role="group"[^>]*aria-label="Language"/);
+  const languageButtonTags=html.match(/<button\b[^>]*data-language="(?:en-US|pt-BR)"[^>]*>/g)||[];
+  assert.equal(languageButtonTags.length,2,'there are exactly two native language buttons');
+  const portugueseButton=languageButtonTags.find(button=>button.includes('data-language="pt-BR"'));
+  const englishButton=languageButtonTags.find(button=>button.includes('data-language="en-US"'));
+  assert.match(portugueseButton,/(?=.*aria-label="Português \(Brasil\)")(?=.*title="Português \(Brasil\)")(?=.*aria-pressed="false")/);
+  assert.match(englishButton,/(?=.*aria-label="English")(?=.*title="English")(?=.*aria-pressed="true")/);
+  assert.equal((html.match(/<svg\b/g)||[]).length,2,'language buttons use inline SVG flags');
+  assert.match(html,/<span[^>]*aria-hidden="true"[^>]*>\s*\|\s*<\/span>/);
   const css=readFileSync(new URL('../src/dashboard.input.css',import.meta.url),'utf8');
   assert.doesNotMatch(css,/\.side-foot\{display:none/);
 });

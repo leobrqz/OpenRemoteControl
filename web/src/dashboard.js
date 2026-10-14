@@ -482,8 +482,8 @@ function updateChrome(){
   document.title=t('title');
   byId('pageTitle').textContent=t('page.'+currentPage);
   byId('mainNav').setAttribute('aria-label',t('navigation'));
-  byId('languageLabel').textContent=t('language.label');
-  byId('languageSelect').setAttribute('aria-label',t('language.label'));
+  byId('languageControls').setAttribute('aria-label',t('language.label'));
+  document.querySelectorAll('[data-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.language===language)));
   byId('copyLogs').textContent=t('copy');
   byId('copyLogs').setAttribute('aria-label',t('copy'));
   document.querySelectorAll('[data-page]').forEach(item=>{item.textContent=t('page.'+item.dataset.page);});
@@ -498,14 +498,12 @@ function changeLanguage(value){
   try{scrollX=window.scrollX;scrollY=window.scrollY;}catch{}
   language=value;
   try{localStorage.setItem(languageStorageKey,language);}catch{}
-  byId('languageSelect').value=language;
   updateChrome();
   if(latestState)render(latestState,{languageChange:true});
   try{window.scrollTo(scrollX,scrollY);}catch{}
 }
 updateChrome();
-byId('languageSelect').value=language;
-byId('languageSelect').addEventListener('change',event=>changeLanguage(event.currentTarget.value));
+document.querySelectorAll('[data-language]').forEach(button=>button.addEventListener('click',()=>changeLanguage(button.dataset.language)));
 document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>{
   currentPage=button.dataset.page;location.hash=currentPage;selectPage();
 }));

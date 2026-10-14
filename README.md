@@ -57,6 +57,8 @@ Android and Windows have separate dependencies and builds. The Windows ZIP inclu
 
 Run `npm run dev` from `site/` to preview the website at `http://127.0.0.1:4173/`.
 
+For dashboard development, start the Windows app and run `npm run dev` from `web/`. Open `http://127.0.0.1:5173/`; source changes reload automatically and API requests use the running Windows dashboard. Set `ORC_DASHBOARD_URL` if its loopback port differs from 47654.
+
 ## Connect
 
 1. Extract the Windows ZIP into a user-writable directory and run its root `Open Remote Control.exe` launcher. Double-click its tray icon to open the dashboard in your browser.
