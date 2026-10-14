@@ -236,6 +236,7 @@ class _ClientScreenState extends State<ClientScreen>
       child: Scaffold(
         drawerEnableOpenDragGesture: _preferences.swipeToOpenMenu,
         drawer: ClientDrawer(
+          version: _updates.currentVersion,
           destination: _destination,
           control: _control,
           preferences: _preferences,

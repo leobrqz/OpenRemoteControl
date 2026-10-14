@@ -130,11 +130,12 @@ void main() {
       expect(p.value.locale, const Locale('en', 'US'));
       await drawer(tester);
       final about = tester.getRect(find.widgetWithText(ListTile, 'About'));
-      final selector = tester.getRect(find.byType(DropdownButton<String>));
-      expect(selector.top, greaterThanOrEqualTo(about.bottom));
-      await tester.tap(find.byType(DropdownButton<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Português (Brasil)').last);
+      final flags = tester.getRect(
+        find.byKey(const ValueKey('language-pt-BR')),
+      );
+      expect(flags.top, greaterThanOrEqualTo(about.bottom));
+      expect(find.byKey(const ValueKey('language-en-US')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('language-pt-BR')));
       await tester.pumpAndSettle();
       expect(p.value.language, 'pt-BR');
       expect(find.text('Sobre'), findsOneWidget);
@@ -271,7 +272,8 @@ void main() {
         final strings = await AppLocalizations.delegate.load(p.value.locale);
         expect(tester.takeException(), isNull);
         await drawer(tester);
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(find.byKey(const ValueKey('language-pt-BR')), findsOneWidget);
+        expect(find.byKey(const ValueKey('language-en-US')), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.tap(find.text(strings.mouse).last);
         await tester.pumpAndSettle();
