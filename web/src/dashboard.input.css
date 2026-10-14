@@ -9,6 +9,7 @@
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh}
     button{font:inherit;cursor:pointer}
+    .btn{height:auto;min-height:var(--size);max-width:100%;white-space:normal;overflow-wrap:anywhere}
     .shell{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:100vh}
     aside{background:#fff;border-right:1px solid #d8ded8;display:flex;flex-direction:column;position:sticky;top:0;align-self:start;height:100vh;height:100dvh;overflow:hidden}
     .brand{height:58px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #e1e4e1;color:#26362c;font-size:15px;font-weight:600}
@@ -17,7 +18,9 @@
     nav button{border:0;background:transparent;text-align:left;border-radius:4px;padding:11px 12px;color:#343a35;font-size:13px;font-weight:500}
     nav button:hover{background:#f0f4ef}
     nav button.active{background:#e9f3e7;color:#286f21;font-weight:650}
-    .side-foot{margin-top:auto;flex-shrink:0;padding:14px 18px;color:#778078;border-top:1px solid #e1e4e1;font-size:12px}
+    .side-foot{margin-top:auto;flex-shrink:0;padding:14px 18px;color:#778078;border-top:1px solid #e1e4e1;font-size:12px;display:grid;gap:12px}
+    .language-control{display:grid;gap:6px;color:#555e57;font-size:12px}
+    .language-control select{width:100%;min-height:36px;padding:6px 9px;border:1px solid #cbd2cb;border-radius:4px;background:#fff;color:#202124;font:inherit}
     main{min-width:0}
     .page-head{background:#398f24;color:white;min-height:122px;padding:22px clamp(22px,4vw,50px) 18px}
     .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.88}
@@ -27,6 +30,7 @@
     .content{padding:25px clamp(22px,4vw,50px) 42px;max-width:1250px}
     h2{font-size:20px;font-weight:400;margin:0 0 15px}
     h3{font-size:16px;font-weight:600;margin:0}
+    h1,h2,h3{overflow-wrap:anywhere}
     .section{margin:0 0 27px}
     
     .section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
@@ -55,4 +59,4 @@
     .log-output{font:12px/1.5 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:65vh;overflow:auto;margin:0;color:#303832}
     .small{font-size:12px;color:#69716b;line-height:1.5}
     .hidden{display:none}
-    @media(max-width:700px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;overflow:visible;border-right:0;border-bottom:1px solid #d8ded8}.brand{height:50px}nav{grid-template-columns:repeat(3,1fr);padding:7px;overflow:visible}nav button{padding:9px 7px;text-align:center}.side-foot{display:none}.page-head{min-height:105px}.head-actions{margin-top:14px}.row{grid-template-columns:1fr;gap:5px}.device-row{align-items:flex-start;flex-direction:column}.pairing-card{grid-template-columns:1fr}.pairing-qr{width:min(240px,100%);height:auto;justify-self:center}}
+    @media(max-width:700px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;min-height:0;overflow:visible;border-right:0;border-bottom:1px solid #d8ded8}.brand{height:50px}nav{grid-template-columns:repeat(3,1fr);padding:7px;overflow:visible}nav button{padding:9px 7px;text-align:center}.side-foot{display:grid;grid-template-columns:minmax(150px,1fr) auto;align-items:end;padding:8px 12px}.side-foot #appVersion{padding-bottom:9px;text-align:right}.page-head{min-height:105px}.head-actions{margin-top:14px}.row{grid-template-columns:1fr;gap:5px}.device-row{align-items:flex-start;flex-direction:column}.pairing-card{grid-template-columns:1fr}.pairing-qr{width:min(240px,100%);height:auto;justify-self:center}}

@@ -1,34 +1,43 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en-US">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
-  <title>Open Remote Control — Servidor</title>
+  <title>Open Remote Control — Server</title>
   <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
 <body>
 <div class="shell">
   <aside>
     <div class="brand"><img class="brand-mark" src="/assets/mark.svg" alt="" width="25" height="25"><span>Open Remote</span></div>
-    <nav aria-label="Navegação principal">
+    <nav id="mainNav" aria-label="Main navigation">
       <button class="active" data-page="status">Status</button>
-      <button data-page="devices">Dispositivos</button>
-      <button data-page="network">Rede</button>
-      <button data-page="logs">Log</button>
-      <button data-page="about">Sobre</button>
+      <button data-page="devices">Devices</button>
+      <button data-page="network">Network</button>
+      <button data-page="logs">Logs</button>
+      <button data-page="about">About</button>
     </nav>
-    <div class="side-foot" id="appVersion"></div>
+    <div class="side-foot">
+      <div class="language-control">
+        <label id="languageLabel" for="languageSelect">Language</label>
+        <select id="languageSelect" aria-label="Language">
+          <option value="en-US">English</option>
+          <option value="pt-BR">Português (Brasil)</option>
+        </select>
+      </div>
+      <div id="appVersion"></div>
+    </div>
   </aside>
   <main>
     <header class="page-head">
-      <div class="head-actions"><button id="copyLogs" class="btn btn-sm btn-ghost">Copiar diagnóstico</button></div>
+      <div class="head-actions"><button id="copyLogs" class="btn btn-sm btn-ghost">Copy diagnostics</button></div>
       <div class="eyebrow">Open Remote Control</div>
       <h1 id="pageTitle">Status</h1>
     </header>
     <div class="content">
-      <div class="notice" id="notice" role="status"></div>
+      <div class="notice" id="notice" role="status" aria-live="polite"></div>
       <div id="page"></div>
     </div>
   </main>
