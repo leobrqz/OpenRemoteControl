@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_remote_server/src/host/host_dashboard.dart';
+import 'package:open_remote_server/src/host/host_request_error.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,9 +12,11 @@ void main() {
   late HttpClient client;
   HttpOverrides? previousOverrides;
   final actions = <String>[];
+  Object? refusal;
 
   setUp(() async {
     actions.clear();
+    refusal = null;
     previousOverrides = HttpOverrides.current;
     HttpOverrides.global = null;
     client = HttpClient();
@@ -22,7 +25,10 @@ void main() {
         'running': true,
         'addresses': ['192.168.1.2'],
       },
-      actionHandler: (action, _) async => actions.add(action),
+      actionHandler: (action, _) async {
+        if (refusal != null) throw refusal!;
+        actions.add(action);
+      },
       pairingQrProvider: () => 'open-remote-test-pairing',
     );
     await dashboard.start();
@@ -97,4 +103,51 @@ void main() {
     expect(await action('http://127.0.0.1:${dashboard.port}'), HttpStatus.ok);
     expect(actions, ['start']);
   });
+
+  test(
+    'returns stable localization codes with compatible legacy errors',
+    () async {
+      Future<Map<String, dynamic>> post(Object body, {String? origin}) async {
+        final request = await client.postUrl(
+          Uri.parse('${dashboard.url}api/action'),
+        );
+        request.headers.set(
+          'origin',
+          origin ?? 'http://127.0.0.1:${dashboard.port}',
+        );
+        request.headers.contentType = ContentType.json;
+        request.write(jsonEncode(body));
+        final response = await request.close();
+        expect(response.statusCode, isNot(HttpStatus.ok));
+        return jsonDecode(await utf8.decoder.bind(response).join())
+            as Map<String, dynamic>;
+      }
+
+      for (final (body, code) in [
+        (<String, Object?>{}, 'invalid_action'),
+        (<Object?>[], 'invalid_body'),
+        (<String, Object?>{'action': 'update_check'}, 'updates_unavailable'),
+      ]) {
+        final result = await post(body);
+        expect(result['errorCode'], code);
+        expect(result['error'], isA<String>());
+      }
+      final untrusted = await post({
+        'action': 'start',
+      }, origin: 'https://example.invalid');
+      expect(untrusted['errorCode'], 'invalid_origin');
+      expect(actions, isEmpty);
+      refusal = const HostRequestError(
+        'invalid_request',
+        'Pedido de conexão inválido.',
+      );
+      final owned = await post({'action': 'approve', 'id': 'expired'});
+      expect(owned['errorCode'], 'invalid_request');
+      expect(owned['error'], contains('Pedido de conexão inválido.'));
+      refusal = StateError('Technical diagnostic detail');
+      final unexpected = await post({'action': 'start'});
+      expect(unexpected['errorCode'], 'action_failed');
+      expect(actions, isEmpty);
+    },
+  );
 }

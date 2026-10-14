@@ -8,8 +8,9 @@ import 'package:open_remote_core/open_remote_core.dart';
 import 'update_platform.dart';
 
 class UpdateConflict implements Exception {
-  const UpdateConflict(this.message);
+  const UpdateConflict(this.message, {this.code = 'update_busy'});
   final String message;
+  final String code;
   @override
   String toString() => message;
 }
@@ -157,6 +158,7 @@ class UpdateService extends ChangeNotifier {
     if (!_managed || ['checking', 'downloading', 'applying'].contains(_state)) {
       throw const UpdateConflict(
         'Atualizações indisponíveis ou operação em andamento.',
+        code: 'update_busy',
       );
     }
   }
@@ -165,6 +167,7 @@ class UpdateService extends ChangeNotifier {
     if (!_managed || _state != 'available' || id != _candidateId) {
       throw const UpdateConflict(
         'Atualização expirada ou operação em andamento. Verifique novamente.',
+        code: 'candidate_changed',
       );
     }
   }

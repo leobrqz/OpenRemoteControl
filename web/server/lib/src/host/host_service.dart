@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
+import 'host_request_error.dart';
 import 'host_client_repository.dart';
 import '../updates/update_service.dart';
 
@@ -95,6 +96,7 @@ class RemoteHostService extends ChangeNotifier {
   DateTime? _pairingExpiresAt;
   List<String> _localAddresses = const [];
   String? _lastError;
+  String? _lastErrorCode;
   String? _lastConnectionAddress;
   DateTime? _lastConnectionAt;
   bool _disposed = false;
@@ -152,6 +154,7 @@ class RemoteHostService extends ChangeNotifier {
   Map<String, Object?> _dashboardState() => {
     'running': isRunning,
     'error': _lastError,
+    'errorCode': _lastErrorCode,
     'addresses': _localAddresses,
     'port': port,
     'discoveryPort': localDiscoveryPort,
@@ -200,14 +203,20 @@ class RemoteHostService extends ChangeNotifier {
       case 'reject':
         final requestId = parameters['id'];
         if (requestId is! String || requestId.length > 64) {
-          throw const FormatException('Pedido de conexão inválido.');
+          throw const HostRequestError(
+            'invalid_request',
+            'Pedido de conexão inválido.',
+          );
         }
         await decidePairingRequest(requestId, approve: action == 'approve');
         return;
       case 'revoke':
         final clientId = parameters['id'];
         if (clientId is! String || clientId.length > 64) {
-          throw const FormatException('Celular pareado inválido.');
+          throw const HostRequestError(
+            'invalid_client',
+            'Celular pareado inválido.',
+          );
         }
         await revokeClient(clientId);
         return;
@@ -215,13 +224,17 @@ class RemoteHostService extends ChangeNotifier {
         await createPairingCode();
         return;
       default:
-        throw const FormatException('Ação desconhecida no painel local.');
+        throw const HostRequestError(
+          'unknown_action',
+          'Ação desconhecida no painel local.',
+        );
     }
   }
 
   Future<void> start() async {
     if (_server != null) return;
     _lastError = null;
+    _lastErrorCode = null;
     await DiagnosticLog.record(
       'Windows',
       'Iniciando servidor TCP $port e descoberta UDP $localDiscoveryPort.',
@@ -252,7 +265,10 @@ class RemoteHostService extends ChangeNotifier {
         'Interfaces IPv4 locais: ${_localAddresses.join(', ')}.',
       );
       if (_localAddresses.isEmpty) {
-        throw StateError('Nenhum endereço IPv4 privado foi encontrado.');
+        throw const HostRequestError(
+          'no_local_address',
+          'Nenhum endereço IPv4 privado foi encontrado.',
+        );
       }
       final server = await HttpServer.bind(
         InternetAddress.anyIPv4,
@@ -264,6 +280,7 @@ class RemoteHostService extends ChangeNotifier {
         (request) => unawaited(_handleRequest(request)),
         onError: (Object error) {
           _lastError = 'Falha no servidor local: $error';
+          _lastErrorCode = 'server_failed';
           _notifyListeners();
         },
       );
@@ -281,6 +298,7 @@ class RemoteHostService extends ChangeNotifier {
         _handleDiscoveryEvent,
         onError: (Object error) {
           _lastError = 'Falha na descoberta pela rede local: $error';
+          _lastErrorCode = 'discovery_failed';
           _notifyListeners();
         },
       );
@@ -294,6 +312,12 @@ class RemoteHostService extends ChangeNotifier {
       _lastError = error is SocketException && error.osError?.errorCode == 10048
           ? 'A porta local $port já está em uso.'
           : error.toString();
+      _lastErrorCode =
+          error is SocketException && error.osError?.errorCode == 10048
+          ? 'port_in_use'
+          : error is HostRequestError
+          ? error.code
+          : 'server_failed';
       await DiagnosticLog.record(
         'Windows',
         'Falha ao iniciar servidor.',
@@ -474,6 +498,7 @@ class RemoteHostService extends ChangeNotifier {
       }
     } catch (error, stackTrace) {
       _lastError = 'Conexão local recusada: $error';
+      _lastErrorCode = 'connection_rejected';
       await DiagnosticLog.record(
         'Windows',
         'Falha processando conexão de $remoteAddress.',
@@ -562,16 +587,23 @@ class RemoteHostService extends ChangeNotifier {
       late final _AuthorizedClient paired;
       try {
         paired = await _authorize(auth, remoteAddress: remoteAddress);
-      } catch (_) {
+      } catch (error) {
         socket.add(
           jsonEncode(
-            await session.encrypt({'kind': 'auth_error', 'mode': auth['mode']}),
+            await session.encrypt({
+              'kind': 'auth_error',
+              'mode': auth['mode'],
+              'code': error is HostRequestError
+                  ? error.code
+                  : 'invalid_authorization',
+            }),
           ),
         );
         rethrow;
       }
       authenticatedClientId = paired.clientId;
       _lastError = null;
+      _lastErrorCode = null;
       await DiagnosticLog.record(
         'Windows',
         'Cliente autorizado (${paired.clientId}) em $remoteAddress.',
@@ -606,6 +638,7 @@ class RemoteHostService extends ChangeNotifier {
         stackTrace: stackTrace,
       );
       _lastError = 'Falha com $remoteAddress durante $phase: $error';
+      _lastErrorCode = 'connection_failed';
       _notifyListeners();
     } finally {
       for (final button in heldMouseButtons.toList()) {
@@ -637,7 +670,10 @@ class RemoteHostService extends ChangeNotifier {
     required String remoteAddress,
   }) async {
     if (auth['kind'] != 'auth') {
-      throw const FormatException('Autorização inválida.');
+      throw const HostRequestError(
+        'invalid_authorization',
+        'Autorização inválida.',
+      );
     }
     if (auth['mode'] == 'pair') {
       final token = _pairingToken;
@@ -647,10 +683,16 @@ class RemoteHostService extends ChangeNotifier {
           expires == null ||
           DateTime.now().isAfter(expires) ||
           suppliedToken != token) {
-        throw const FormatException('Pareamento expirado ou inválido.');
+        throw const HostRequestError(
+          'pairing_expired',
+          'Pareamento expirado ou inválido.',
+        );
       }
       if (_clients.length >= 32) {
-        throw const FormatException('Limite de celulares pareados atingido.');
+        throw const HostRequestError(
+          'pairing_limit',
+          'Limite de celulares pareados atingido.',
+        );
       }
       final paired = await _registerClient(
         _cleanClientName(auth['clientName']),
@@ -665,10 +707,14 @@ class RemoteHostService extends ChangeNotifier {
     }
     if (auth['mode'] == 'request_pair') {
       if (_clients.length >= 32) {
-        throw const FormatException('Limite de celulares pareados atingido.');
+        throw const HostRequestError(
+          'pairing_limit',
+          'Limite de celulares pareados atingido.',
+        );
       }
       if (_pendingPairingRequests.length >= 4) {
-        throw const FormatException(
+        throw const HostRequestError(
+          'request_pending',
           'Ha pedidos de pareamento aguardando aprovacao.',
         );
       }
@@ -702,7 +748,10 @@ class RemoteHostService extends ChangeNotifier {
         _notifyListeners();
       }
       if (!approved) {
-        throw const FormatException('Pareamento recusado no Windows.');
+        throw const HostRequestError(
+          'pairing_rejected',
+          'Pareamento recusado no Windows.',
+        );
       }
       return _registerClient(
         pending.request.clientName,
@@ -714,11 +763,17 @@ class RemoteHostService extends ChangeNotifier {
       final id = auth['clientId'];
       final token = auth['clientToken'];
       if (id is! String || token is! String || token.length > 128) {
-        throw const FormatException('Credencial inválida.');
+        throw const HostRequestError(
+          'invalid_authorization',
+          'Credencial inválida.',
+        );
       }
       final client = _clients[id];
       if (client == null || client.tokenHash != await _tokenHash(token)) {
-        throw const FormatException('Este dispositivo não está autorizado.');
+        throw const HostRequestError(
+          'authorization_revoked',
+          'Este dispositivo não está autorizado.',
+        );
       }
       final name = _cleanOptionalClientField(auth['clientName'], maxLength: 64);
       final model = _cleanOptionalClientField(
@@ -746,11 +801,17 @@ class RemoteHostService extends ChangeNotifier {
         );
       }
       if (_clients[id]?.tokenHash != client.tokenHash) {
-        throw const FormatException('Este dispositivo não está autorizado.');
+        throw const HostRequestError(
+          'authorization_revoked',
+          'Este dispositivo não está autorizado.',
+        );
       }
       return _AuthorizedClient(clientId: id, clientToken: token);
     }
-    throw const FormatException('Modo de autorização inválido.');
+    throw const HostRequestError(
+      'invalid_authorization',
+      'Modo de autorização inválido.',
+    );
   }
 
   Future<_AuthorizedClient> _registerClient(

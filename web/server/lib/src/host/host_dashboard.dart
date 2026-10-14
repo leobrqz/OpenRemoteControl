@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'package:open_remote_core/open_remote_core.dart';
 import 'pairing_qr_svg.dart';
+import 'host_request_error.dart';
 import '../updates/update_service.dart';
 
 typedef DashboardStateProvider = Map<String, Object?> Function();
@@ -166,6 +167,7 @@ class HostDashboardServer {
       if (!_isTrustedBrowserPost(request)) {
         await _writeJson(request.response, HttpStatus.forbidden, {
           'error': 'Origem local inválida.',
+          'errorCode': 'invalid_origin',
         });
         return;
       }
@@ -173,19 +175,25 @@ class HostDashboardServer {
         final body = await _readJsonBody(request);
         final action = body['action'];
         if (action is! String || action.length > 32) {
-          throw const FormatException('Ação inválida.');
+          throw const HostRequestError('invalid_action', 'Ação inválida.');
         }
         var status = HttpStatus.ok;
         if (action.startsWith('update_')) {
           final updater = updates;
           if (updater == null) {
-            throw const UpdateConflict('Atualizações indisponíveis.');
+            throw const UpdateConflict(
+              'Atualizações indisponíveis.',
+              code: 'updates_unavailable',
+            );
           }
           final expected = action == 'update_check'
               ? {'action'}
               : {'action', 'candidateId'};
           if (body.keys.any((key) => !expected.contains(key))) {
-            throw const FormatException('Parâmetros de atualização inválidos.');
+            throw const HostRequestError(
+              'invalid_update',
+              'Parâmetros de atualização inválidos.',
+            );
           }
           switch (action) {
             case 'update_check':
@@ -195,7 +203,8 @@ class HostDashboardServer {
             case 'update_install':
               final id = body['candidateId'];
               if (id is! String || id.isEmpty || id.length > 64) {
-                throw const FormatException(
+                throw const HostRequestError(
+                  'invalid_update',
                   'Identificador de atualização inválido.',
                 );
               }
@@ -206,7 +215,10 @@ class HostDashboardServer {
                 status = HttpStatus.accepted;
               }
             default:
-              throw const FormatException('Ação de atualização desconhecida.');
+              throw const HostRequestError(
+                'unknown_action',
+                'Ação de atualização desconhecida.',
+              );
           }
         } else {
           await actionHandler(action, body);
@@ -222,7 +234,15 @@ class HostDashboardServer {
         await _writeJson(
           request.response,
           error is UpdateConflict ? HttpStatus.conflict : HttpStatus.badRequest,
-          {'error': error.toString()},
+          {
+            'error': error.toString(),
+            'errorCode': switch (error) {
+              HostRequestError() => error.code,
+              UpdateConflict() => error.code,
+              FormatException() => 'invalid_body',
+              _ => 'action_failed',
+            },
+          },
         );
       }
       return;
@@ -253,13 +273,16 @@ class HostDashboardServer {
     await for (final chunk in request) {
       byteLength += chunk.length;
       if (byteLength > 4096) {
-        throw const FormatException('Corpo da solicitação excede 4 KB.');
+        throw const HostRequestError(
+          'invalid_body',
+          'Corpo da solicitação excede 4 KB.',
+        );
       }
       body.write(utf8.decode(chunk));
     }
     final decoded = jsonDecode(body.toString());
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('JSON da ação inválido.');
+      throw const HostRequestError('invalid_body', 'JSON da ação inválido.');
     }
     return decoded;
   }
