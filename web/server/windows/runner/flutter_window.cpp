@@ -34,6 +34,7 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   update_bridge_ = std::make_unique<UpdateBridge>(
       flutter_controller_->engine()->messenger(), GetHandle());
+  audio_mixer_ = std::make_unique<AudioMixer>();
   input_channel_ = std::make_unique<
       flutter::MethodChannel<flutter::EncodableValue>>(
       flutter_controller_->engine()->messenger(), "open_remote/input",
@@ -309,6 +310,63 @@ bool FlutterWindow::OnCreate() {
           return;
         }
 
+        if (call.method_name() == "readAudioSessions") {
+          std::vector<MixerSession> sessions;
+          const HRESULT status = audio_mixer_->Read(&sessions);
+          if (FAILED(status)) {
+            result->Error("audio_unavailable", "Could not read the Windows audio mixer.",
+                          flutter::EncodableValue(static_cast<int32_t>(status)));
+            return;
+          }
+          flutter::EncodableList values;
+          for (const auto& session : sessions) {
+            values.emplace_back(flutter::EncodableMap{
+                {flutter::EncodableValue("id"), flutter::EncodableValue(session.id)},
+                {flutter::EncodableValue("name"), flutter::EncodableValue(session.name)},
+                {flutter::EncodableValue("device"), flutter::EncodableValue(session.device)},
+                {flutter::EncodableValue("level"), flutter::EncodableValue(session.level)},
+                {flutter::EncodableValue("muted"), flutter::EncodableValue(session.muted)},
+                {flutter::EncodableValue("systemSounds"),
+                 flutter::EncodableValue(session.system_sounds)},
+            });
+          }
+          result->Success(flutter::EncodableValue(values));
+          return;
+        }
+
+        if (call.method_name() == "setAudioSessionLevel" ||
+            call.method_name() == "setAudioSessionMute") {
+          std::string id;
+          if (!read_string("id", &id) || id.empty() || id.size() > 20) {
+            result->Error("invalid_arguments", "Invalid audio session.");
+            return;
+          }
+          HRESULT status;
+          if (call.method_name() == "setAudioSessionLevel") {
+            double level = 0;
+            if (!read_number("level", &level) || level < 0 || level > 100 ||
+                std::trunc(level) != level) {
+              result->Error("invalid_arguments", "Invalid audio session volume.");
+              return;
+            }
+            status = audio_mixer_->SetLevel(id, static_cast<int32_t>(level));
+          } else {
+            bool muted = false;
+            if (!read_boolean("muted", &muted)) {
+              result->Error("invalid_arguments", "Invalid audio session mute state.");
+              return;
+            }
+            status = audio_mixer_->SetMute(id, muted);
+          }
+          if (FAILED(status)) {
+            result->Error("audio_unavailable", "Could not update the audio session.",
+                          flutter::EncodableValue(static_cast<int32_t>(status)));
+            return;
+          }
+          result->Success(flutter::EncodableValue(status == S_OK));
+          return;
+        }
+
         if (call.method_name() == "readVolume") {
           OutputVolume volume{};
           const HRESULT status = ReadDefaultOutputVolume(&volume);
@@ -368,6 +426,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  audio_mixer_.reset();
   update_bridge_.reset();
   if (input_channel_) {
     input_channel_->SetMethodCallHandler(nullptr);

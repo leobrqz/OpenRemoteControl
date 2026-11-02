@@ -38,6 +38,13 @@ target_compile_features(update_policy_test PRIVATE cxx_std_17)
 target_compile_options(update_policy_test PRIVATE /EHsc /W4 /WX)
 target_compile_definitions(update_policy_test PRIVATE _HAS_EXCEPTIONS=1 NOMINMAX)
 set_target_properties(update_policy_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/updater-tests")
+add_library(audio_mixer_test SHARED EXCLUDE_FROM_ALL
+  "tests/audio_mixer_test.cpp" "audio_mixer.cpp" "audio_volume.cpp")
+target_compile_features(audio_mixer_test PRIVATE cxx_std_17)
+target_compile_options(audio_mixer_test PRIVATE /EHsc /W4 /WX /wd4100)
+target_compile_definitions(audio_mixer_test PRIVATE NOMINMAX)
+target_link_libraries(audio_mixer_test PRIVATE ole32 shlwapi version)
+set_target_properties(audio_mixer_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/audio-mixer-tests")
 install(FILES "${VELOPACK_SDK}/lib/velopack_libc_win_x64_msvc.dll"
   DESTINATION "$<TARGET_FILE_DIR:${BINARY_NAME}>" RENAME "velopack_libc.dll" COMPONENT Runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.velopack"
@@ -50,6 +57,7 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.velopack"
 #
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
+  "audio_mixer.cpp"
   "audio_volume.cpp"
   "flutter_window.cpp"
   "main.cpp"
@@ -79,6 +87,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "ole32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "shlwapi.lib" "version.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE windows_updater)
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
