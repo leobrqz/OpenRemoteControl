@@ -11,6 +11,7 @@ import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
 import 'host_request_error.dart';
 import 'host_client_repository.dart';
+import 'volume_publisher.dart';
 import '../updates/update_service.dart';
 
 class PairedClient {
@@ -514,6 +515,7 @@ class RemoteHostService extends ChangeNotifier {
     required String remoteAddress,
   }) async {
     String? authenticatedClientId;
+    VolumePublisher? volumePublisher;
     var phase = 'handshake';
     final heldMouseButtons = <String>{};
     final heldModifiers = <String>{};
@@ -624,6 +626,44 @@ class RemoteHostService extends ChangeNotifier {
         ),
       );
 
+      final features = auth['features'];
+      if (features is List && features.contains(volumeStateFeature)) {
+        volumePublisher = VolumePublisher(
+          read: WindowsInput.readVolume,
+          send: (state) async {
+            if (socket.readyState != WebSocket.open) return;
+            final frame = await session.encrypt(
+              state?.toMessage() ??
+                  {'kind': volumeStateFeature, 'level': null, 'muted': null},
+            );
+            if (socket.readyState == WebSocket.open) {
+              socket.add(jsonEncode(frame));
+            }
+          },
+          onReadError: (error, stackTrace) {
+            unawaited(
+              DiagnosticLog.record(
+                'Windows',
+                'Could not read the output volume.',
+                error: error,
+                stackTrace: stackTrace,
+              ),
+            );
+          },
+          onSendError: (error, stackTrace) {
+            unawaited(
+              DiagnosticLog.record(
+                'Windows',
+                'Could not send the output volume.',
+                error: error,
+                stackTrace: stackTrace,
+              ),
+            );
+            unawaited(socket.close(WebSocketStatus.internalServerError));
+          },
+        )..start();
+      }
+
       phase = 'comandos';
       while (await iterator.moveNext()) {
         final frame = iterator.current;
@@ -641,6 +681,7 @@ class RemoteHostService extends ChangeNotifier {
       _lastErrorCode = 'connection_failed';
       _notifyListeners();
     } finally {
+      volumePublisher?.stop();
       for (final button in heldMouseButtons.toList()) {
         try {
           await WindowsInput.mouseButton(button, false);

@@ -137,6 +137,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get volume => 'Volume';
 
   @override
+  String get volumeUnavailable => 'Indisponível';
+
+  @override
+  String get muted => 'Sem som';
+
+  @override
   String get decreaseVolume => 'Diminuir';
 
   @override
@@ -829,6 +835,12 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get volume => 'Volume';
+
+  @override
+  String get volumeUnavailable => 'Indisponível';
+
+  @override
+  String get muted => 'Sem som';
 
   @override
   String get decreaseVolume => 'Diminuir';

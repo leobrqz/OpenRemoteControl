@@ -211,6 +211,7 @@ class _ClientScreenState extends State<ClientScreen>
               MediaControl(
                 actions: _actions,
                 active: active && _control == ControlPage.media,
+                volumeState: _service.isConnected ? _service.volumeState : null,
               ),
               KeyboardControl(
                 actions: _actions,

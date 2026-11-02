@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 class WindowsInput {
   WindowsInput._();
@@ -34,4 +35,14 @@ class WindowsInput {
 
   static Future<void> media(String command) =>
       _channel.invokeMethod<void>('media', {'command': command});
+
+  static Future<VolumeState?> readVolume() async {
+    final payload = await _channel.invokeMapMethod<Object?, Object?>(
+      'readVolume',
+    );
+    if (payload == null) return null;
+    final state = VolumeState.fromMap(payload);
+    if (state == null) throw const FormatException('Invalid volume state.');
+    return state;
+  }
 }

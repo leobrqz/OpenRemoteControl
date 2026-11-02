@@ -21,6 +21,7 @@ const _host = SavedHost(
 
 class _FakeService extends RemoteClientService {
   bool connected = false, session = false;
+  VolumeState? volume;
   int reconnects = 0;
   final commands = <Map<String, Object?>>[];
   @override
@@ -31,6 +32,8 @@ class _FakeService extends RemoteClientService {
   SavedHost? get currentHost => session ? _host : null;
   @override
   String? get connectedAddress => session ? '192.168.1.2' : null;
+  @override
+  VolumeState? get volumeState => volume;
   @override
   Future<List<SavedHost>> loadSavedHosts() async => [_host];
   @override
@@ -64,6 +67,11 @@ class _FakeService extends RemoteClientService {
 
   void drop() {
     connected = false;
+    notifyListeners();
+  }
+
+  void setVolume(VolumeState? value) {
+    volume = value;
     notifyListeners();
   }
 }
@@ -188,6 +196,33 @@ void main() {
       expect(find.byType(MouseControl), findsOneWidget);
       await tester.tap(find.text('Mídia'));
       await tester.pumpAndSettle();
+      expect(find.text('Indisponível'), findsOneWidget);
+      service.setVolume(const VolumeState(level: 64, muted: false));
+      await tester.pump();
+      expect(find.text('64%'), findsOneWidget);
+      await tester.tap(find.byTooltip('Aumentar'));
+      await tester.pump();
+      expect(service.commands.last, {
+        'kind': 'media.command',
+        'action': 'volumeUp',
+      });
+      expect(find.text('64%'), findsOneWidget);
+      await tester.tap(find.byTooltip('Diminuir'));
+      await tester.pump();
+      expect(service.commands.last['action'], 'volumeDown');
+      await tester.tap(find.byTooltip('Mudo'));
+      await tester.pump();
+      expect(service.commands.last['action'], 'volumeMute');
+      service.setVolume(const VolumeState(level: 64, muted: true));
+      await tester.pump();
+      expect(find.text('Sem som'), findsOneWidget);
+      service.setVolume(null);
+      await tester.pump();
+      expect(find.text('Indisponível'), findsOneWidget);
+      service.setVolume(const VolumeState(level: 66, muted: false));
+      await tester.pump();
+      expect(find.text('66%'), findsOneWidget);
+      expect(find.text('Sem som'), findsNothing);
       await tester.tap(find.byTooltip('Pausar / tocar'));
       await tester.pump();
       expect(service.commands.last, {
@@ -197,6 +232,8 @@ void main() {
       service.drop();
       await tester.pump();
       expect(find.byType(MediaControl), findsOneWidget);
+      expect(find.text('66%'), findsNothing);
+      expect(find.text('Indisponível'), findsOneWidget);
       expect(find.text('Reconectar'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();

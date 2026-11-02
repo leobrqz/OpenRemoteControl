@@ -48,6 +48,8 @@
   "pairWithWindows": "Parear com o Windows",
   "scanServerQr": "Aponte a câmera para o QR que aparece no servidor Windows.",
   "volume": "Volume",
+  "volumeUnavailable": "Indisponível",
+  "muted": "Sem som",
   "decreaseVolume": "Diminuir",
   "mute": "Mudo",
   "increaseVolume": "Aumentar",

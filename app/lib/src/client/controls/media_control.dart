@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:open_remote_control/l10n/app_localizations.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 import 'remote_actions.dart';
 
 class MediaControl extends StatelessWidget {
-  const MediaControl({super.key, required this.actions, required this.active});
+  const MediaControl({
+    super.key,
+    required this.actions,
+    required this.active,
+    this.volumeState,
+  });
   final RemoteActions actions;
   final bool active;
+  final VolumeState? volumeState;
 
   Widget _button(
     BuildContext context,
@@ -58,6 +65,21 @@ class MediaControl extends StatelessWidget {
                       l10n.volume,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      volumeState == null ? '—' : '${volumeState!.level}%',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                      semanticsLabel: volumeState == null
+                          ? '${l10n.volume}: ${l10n.volumeUnavailable}'
+                          : '${l10n.volume}: ${volumeState!.level}%',
+                    ),
+                    if (volumeState == null || volumeState!.muted)
+                      Text(
+                        volumeState == null
+                            ? l10n.volumeUnavailable
+                            : l10n.muted,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     const SizedBox(height: 16),
                     Row(
                       children: [

@@ -20,12 +20,15 @@ class RemoteClientService extends ChangeNotifier {
     FlutterSecureStorage? storage,
     HostRepository? repository,
     Future<ClientDeviceIdentity> Function()? deviceIdentityProvider,
+    Future<WebSocket> Function(Uri)? socketConnector,
   }) : _repository = repository ?? SecureHostRepository(storage: storage),
        _deviceIdentityProvider =
-           deviceIdentityProvider ?? ClientDeviceIdentity.load;
+           deviceIdentityProvider ?? ClientDeviceIdentity.load,
+       _socketConnector = socketConnector ?? _connectSocket;
 
   final HostRepository _repository;
   final Future<ClientDeviceIdentity> Function() _deviceIdentityProvider;
+  final Future<WebSocket> Function(Uri) _socketConnector;
   final X25519 _keyExchange = X25519();
   final Ed25519 _signatures = Ed25519();
 
@@ -39,6 +42,7 @@ class RemoteClientService extends ChangeNotifier {
   bool _isDiscovering = false;
   String? _connectedAddress;
   SavedHost? _lastConnectedHost;
+  VolumeState? _volumeState;
   ClientMessage? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
   bool _disposed = false;
@@ -52,6 +56,7 @@ class RemoteClientService extends ChangeNotifier {
   String? get connectedAddress => _connectedAddress;
   ClientMessage? get lastError => _lastError;
   SavedHost? get currentHost => _lastConnectedHost;
+  VolumeState? get volumeState => _volumeState;
 
   Future<void> forgetHost(String serverId) async {
     await _repository.forgetHost(serverId);
@@ -528,8 +533,8 @@ class RemoteClientService extends ChangeNotifier {
       throw const ClientMessageException(ClientMessage('identityMismatch'));
     }
     final uri = Uri(scheme: 'ws', host: address, port: port, path: '/control');
-    final socket = await WebSocket.connect(
-      uri.toString(),
+    final socket = await _socketConnector(
+      uri,
     ).timeout(const Duration(seconds: 6));
     final iterator = StreamIterator<Object?>(socket);
     try {
@@ -617,6 +622,7 @@ class RemoteClientService extends ChangeNotifier {
               'clientToken': profile['clientToken'],
               ...deviceIdentity.authFields,
             };
+      auth['features'] = [volumeStateFeature];
       socket.add(jsonEncode(await session.encrypt(auth)));
       final authResult = await session.decrypt(
         await _nextMap(
@@ -697,6 +703,9 @@ class RemoteClientService extends ChangeNotifier {
     }
   }
 
+  static Future<WebSocket> _connectSocket(Uri uri) =>
+      WebSocket.connect(uri.toString());
+
   Future<void> send(Map<String, Object?> command) {
     final socket = _socket;
     final session = _session;
@@ -736,6 +745,7 @@ class RemoteClientService extends ChangeNotifier {
     }
     final socket = _socket;
     _socket = null;
+    _volumeState = null;
     await pending?.close(WebSocketStatus.normalClosure);
     await iterator?.cancel();
     await socket?.close(WebSocketStatus.normalClosure);
@@ -752,7 +762,20 @@ class RemoteClientService extends ChangeNotifier {
       while (await iterator.moveNext()) {
         final frame = iterator.current;
         final message = await session.decryptWireFrame(frame);
+        if (_socket != socket) break;
         if (message['kind'] == 'close') break;
+        if (message['kind'] == volumeStateFeature) {
+          final state = VolumeState.fromMap(message);
+          final unavailable =
+              message.containsKey('level') &&
+              message.containsKey('muted') &&
+              message['level'] == null &&
+              message['muted'] == null;
+          if ((state != null || unavailable) && state != _volumeState) {
+            _volumeState = state;
+            _notifyListeners();
+          }
+        }
       }
     } catch (error, stackTrace) {
       disconnectReason = error;
@@ -767,6 +790,7 @@ class RemoteClientService extends ChangeNotifier {
         _socket = null;
         _iterator = null;
         _session = null;
+        _volumeState = null;
         _lastError = ClientMessage(
           disconnectReason == null
               ? 'serverClosedConnection'

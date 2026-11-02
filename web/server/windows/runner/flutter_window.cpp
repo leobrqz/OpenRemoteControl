@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "audio_volume.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -305,6 +306,28 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           result->Success();
+          return;
+        }
+
+        if (call.method_name() == "readVolume") {
+          OutputVolume volume{};
+          const HRESULT status = ReadDefaultOutputVolume(&volume);
+          if (status == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) {
+            result->Success();
+            return;
+          }
+          if (FAILED(status)) {
+            result->Error(
+                "audio_unavailable", "Could not read the Windows output volume.",
+                flutter::EncodableValue(static_cast<int32_t>(status)));
+            return;
+          }
+          result->Success(flutter::EncodableValue(flutter::EncodableMap{
+              {flutter::EncodableValue("level"),
+               flutter::EncodableValue(volume.level)},
+              {flutter::EncodableValue("muted"),
+               flutter::EncodableValue(volume.muted)},
+          }));
           return;
         }
 

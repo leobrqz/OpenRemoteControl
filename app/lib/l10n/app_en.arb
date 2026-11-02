@@ -48,6 +48,8 @@
   "pairWithWindows": "Pair with Windows",
   "scanServerQr": "Point the camera at the QR code shown by the Windows server.",
   "volume": "Volume",
+  "volumeUnavailable": "Unavailable",
+  "muted": "Muted",
   "decreaseVolume": "Decrease",
   "mute": "Mute",
   "increaseVolume": "Increase",

@@ -137,6 +137,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get volume => 'Volume';
 
   @override
+  String get volumeUnavailable => 'Unavailable';
+
+  @override
+  String get muted => 'Muted';
+
+  @override
   String get decreaseVolume => 'Decrease';
 
   @override
