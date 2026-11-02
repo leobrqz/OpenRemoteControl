@@ -1,21 +1,21 @@
 import 'dart:async';
 
-import 'package:open_remote_core/open_remote_core.dart';
-
 /// Sends the initial state and subsequent changes for one authorized session.
-class VolumePublisher {
-  VolumePublisher({
+class StatePublisher<T> {
+  StatePublisher({
     required this.read,
     required this.send,
     required this.onReadError,
     required this.onSendError,
+    this.equals,
     this.interval = const Duration(milliseconds: 500),
   });
 
-  final Future<VolumeState?> Function() read;
-  final Future<void> Function(VolumeState?) send;
+  final Future<T?> Function() read;
+  final Future<void> Function(T?) send;
   final void Function(Object, StackTrace) onReadError;
   final void Function(Object, StackTrace) onSendError;
+  final bool Function(T?, T?)? equals;
   final Duration interval;
 
   Timer? _timer;
@@ -23,7 +23,7 @@ class VolumePublisher {
   bool _updating = false;
   bool _hasSent = false;
   bool _readFailed = false;
-  VolumeState? _lastSent;
+  T? _lastSent;
 
   void start() {
     if (_timer != null || _stopped) return;
@@ -41,7 +41,7 @@ class VolumePublisher {
     if (_stopped || _updating) return;
     _updating = true;
     try {
-      VolumeState? state;
+      T? state;
       try {
         state = await read();
         _readFailed = false;
@@ -49,7 +49,11 @@ class VolumePublisher {
         if (!_readFailed && !_stopped) onReadError(error, stackTrace);
         _readFailed = true;
       }
-      if (_stopped || (_hasSent && state == _lastSent)) return;
+      if (_stopped ||
+          (_hasSent &&
+              (equals?.call(state, _lastSent) ?? state == _lastSent))) {
+        return;
+      }
       try {
         await send(state);
         _lastSent = state;

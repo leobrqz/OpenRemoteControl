@@ -11,7 +11,9 @@ import '../platform/windows_input.dart';
 import 'host_dashboard.dart';
 import 'host_request_error.dart';
 import 'host_client_repository.dart';
-import 'volume_publisher.dart';
+import 'audio_mixer_commands.dart';
+import 'ordered_sender.dart';
+import 'state_publisher.dart';
 import '../updates/update_service.dart';
 
 class PairedClient {
@@ -515,7 +517,8 @@ class RemoteHostService extends ChangeNotifier {
     required String remoteAddress,
   }) async {
     String? authenticatedClientId;
-    VolumePublisher? volumePublisher;
+    StatePublisher<VolumeState>? volumePublisher;
+    StatePublisher<List<AudioAppState>>? audioPublisher;
     var phase = 'handshake';
     final heldMouseButtons = <String>{};
     final heldModifiers = <String>{};
@@ -626,20 +629,35 @@ class RemoteHostService extends ChangeNotifier {
         ),
       );
 
+      // Every server message shares the same encrypted sequence, even when
+      // independent publishers detect changes at the same time.
+      final sender = OrderedSender((message) async {
+        if (socket.readyState != WebSocket.open) return;
+        final frame = await session.encrypt(message);
+        if (socket.readyState != WebSocket.open) return;
+        socket.add(jsonEncode(frame));
+      });
+
+      void onSendError(Object error, StackTrace stackTrace) {
+        unawaited(
+          DiagnosticLog.record(
+            'Windows',
+            'Could not send audio state.',
+            error: error,
+            stackTrace: stackTrace,
+          ),
+        );
+        unawaited(socket.close(WebSocketStatus.internalServerError));
+      }
+
       final features = auth['features'];
       if (features is List && features.contains(volumeStateFeature)) {
-        volumePublisher = VolumePublisher(
+        volumePublisher = StatePublisher<VolumeState>(
           read: WindowsInput.readVolume,
-          send: (state) async {
-            if (socket.readyState != WebSocket.open) return;
-            final frame = await session.encrypt(
-              state?.toMessage() ??
-                  {'kind': volumeStateFeature, 'level': null, 'muted': null},
-            );
-            if (socket.readyState == WebSocket.open) {
-              socket.add(jsonEncode(frame));
-            }
-          },
+          send: (state) => sender.send([
+            state?.toMessage() ??
+                {'kind': volumeStateFeature, 'level': null, 'muted': null},
+          ]),
           onReadError: (error, stackTrace) {
             unawaited(
               DiagnosticLog.record(
@@ -650,17 +668,28 @@ class RemoteHostService extends ChangeNotifier {
               ),
             );
           },
-          onSendError: (error, stackTrace) {
+          onSendError: onSendError,
+        )..start();
+      }
+      if (features is List && features.contains(audioMixerFeature)) {
+        var revision = 0;
+        audioPublisher = StatePublisher<List<AudioAppState>>(
+          read: WindowsInput.readAudioSessions,
+          send: (sessions) =>
+              sender.send(audioMixerFrames(sessions, revision++)),
+          equals: listEquals,
+          interval: const Duration(seconds: 1),
+          onReadError: (error, stackTrace) {
             unawaited(
               DiagnosticLog.record(
                 'Windows',
-                'Could not send the output volume.',
+                'Could not read the audio mixer.',
                 error: error,
                 stackTrace: stackTrace,
               ),
             );
-            unawaited(socket.close(WebSocketStatus.internalServerError));
           },
+          onSendError: onSendError,
         )..start();
       }
 
@@ -682,6 +711,7 @@ class RemoteHostService extends ChangeNotifier {
       _notifyListeners();
     } finally {
       volumePublisher?.stop();
+      audioPublisher?.stop();
       for (final button in heldMouseButtons.toList()) {
         try {
           await WindowsInput.mouseButton(button, false);
@@ -962,6 +992,10 @@ class RemoteHostService extends ChangeNotifier {
           throw const FormatException('Comando de mídia não permitido.');
         }
         await WindowsInput.media(action);
+        return;
+      case audioSessionLevelCommand:
+      case audioSessionMuteCommand:
+        await AudioMixerCommands.apply(command);
         return;
       default:
         throw const FormatException('Comando desconhecido.');

@@ -45,4 +45,47 @@ class WindowsInput {
     if (state == null) throw const FormatException('Invalid volume state.');
     return state;
   }
+
+  static Future<List<AudioAppState>> readAudioSessions() async {
+    final payload = await _channel.invokeListMethod<Object?>(
+      'readAudioSessions',
+    );
+    if (payload == null || payload.length > maxAudioMixerSessions) {
+      throw const FormatException('Invalid audio mixer state.');
+    }
+    String cleanLabel(Object? value) {
+      if (value is! String) throw const FormatException('Invalid audio label.');
+      final clean = value.replaceAll(RegExp(r'[\x00-\x1f\x7f]'), '').trim();
+      return String.fromCharCodes(clean.runes.take(maxAudioMixerLabelRunes));
+    }
+
+    final result = <AudioAppState>[];
+    final ids = <String>{};
+    for (final row in payload) {
+      if (row is! Map) throw const FormatException('Invalid audio session.');
+      final normalized = Map<Object?, Object?>.from(row);
+      normalized['name'] = cleanLabel(row['name']);
+      normalized['device'] = cleanLabel(row['device']);
+      final session = AudioAppState.fromMap(normalized);
+      if (session == null || !ids.add(session.id)) {
+        throw const FormatException('Invalid audio session.');
+      }
+      result.add(session);
+    }
+    return List.unmodifiable(result);
+  }
+
+  static Future<bool> setAudioSessionLevel(String id, int level) async =>
+      await _channel.invokeMethod<bool>('setAudioSessionLevel', {
+        'id': id,
+        'level': level.toDouble(),
+      }) ??
+      false;
+
+  static Future<bool> setAudioSessionMute(String id, bool muted) async =>
+      await _channel.invokeMethod<bool>('setAudioSessionMute', {
+        'id': id,
+        'muted': muted,
+      }) ??
+      false;
 }

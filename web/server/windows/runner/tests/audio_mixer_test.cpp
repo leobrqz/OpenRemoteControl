@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <thread>
 #include <vector>
@@ -120,6 +121,120 @@ extern "C" __declspec(dllexport) int TestMixer() {
     CoUninitialize();
   });
   worker.join();
+  return ok ? 1 : 0;
+}
+
+// The other process owns the stream. This distinguishes a real application
+// closing from releasing a stream created by this same test process.
+static bool RunFixture(const char* session_name, HANDLE ready, HANDLE stop) {
+  ComPtr<IMMDeviceEnumerator> enumerator;
+  if (!Check(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                              IID_PPV_ARGS(enumerator.GetAddressOf())), "fixture enumerator")) return false;
+  ComPtr<IMMDevice> device;
+  if (!Check(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, device.GetAddressOf()),
+             "fixture device")) return false;
+  ComPtr<IAudioClient> client;
+  if (!Check(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                              reinterpret_cast<void**>(client.GetAddressOf())), "fixture client")) return false;
+  WAVEFORMATEX* format = nullptr;
+  if (!Check(client->GetMixFormat(&format), "fixture format")) return false;
+  GUID session;
+  CoCreateGuid(&session);
+  const HRESULT status = client->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 10000000,
+                                             0, format, &session);
+  CoTaskMemFree(format);
+  if (!Check(status, "fixture stream")) return false;
+  ComPtr<IAudioSessionControl> control;
+  ComPtr<ISimpleAudioVolume> volume;
+  if (!Check(client->GetService(IID_PPV_ARGS(control.GetAddressOf())), "fixture control") ||
+      !Check(client->GetService(IID_PPV_ARGS(volume.GetAddressOf())), "fixture volume")) return false;
+  const std::wstring name(session_name, session_name + strlen(session_name));
+  if (!Check(control->SetDisplayName(name.c_str(), nullptr), "fixture name") ||
+      !Check(volume->SetMasterVolume(0.37f, nullptr), "fixture level")) return false;
+  SetEvent(ready);
+  return WaitForSingleObject(stop, 30000) == WAIT_OBJECT_0;
+}
+
+extern "C" __declspec(dllexport) int AudioMixerFixture(
+    const char* session_name, const char* ready_name, const char* stop_name,
+    const char* done_name) {
+  const HANDLE ready = OpenEventA(EVENT_MODIFY_STATE, FALSE, ready_name);
+  const HANDLE stop = OpenEventA(SYNCHRONIZE, FALSE, stop_name);
+  const HANDLE done = OpenEventA(EVENT_MODIFY_STATE, FALSE, done_name);
+  if (!ready || !stop || !done) return 0;
+  bool ok = false;
+  std::thread worker([&] {
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (SUCCEEDED(init)) {
+      ok = RunFixture(session_name, ready, stop);
+      CoUninitialize();
+    }
+    SetEvent(done);
+  });
+  worker.join();
+  CloseHandle(ready);
+  CloseHandle(stop);
+  CloseHandle(done);
+  return ok ? 1 : 0;
+}
+
+static bool RunCrossProcess(const char* session_name, HANDLE stop, HANDLE done) {
+  AudioMixer mixer;
+  std::vector<MixerSession> sessions;
+  if (!Check(mixer.Read(&sessions), "read fixture session")) return false;
+  std::string id;
+  for (const auto& session : sessions) {
+    if (session.name == session_name) id = session.id;
+  }
+  if (id.empty()) { failure = "external session was not listed"; return false; }
+  if (mixer.SetLevel(id, 59) != S_OK || mixer.SetMute(id, true) != S_OK) {
+    failure = "external session did not accept changes";
+    return false;
+  }
+  if (!Check(mixer.Read(&sessions), "verify fixture session")) return false;
+  bool updated = false;
+  for (const auto& session : sessions) {
+    if (session.id == id && session.level == 59 && session.muted) updated = true;
+  }
+  if (!updated) { failure = "external session did not reflect changes"; return false; }
+  SetEvent(stop);
+  if (WaitForSingleObject(done, 10000) != WAIT_OBJECT_0) {
+    failure = "external audio process did not stop";
+    return false;
+  }
+  bool removed = false;
+  for (int attempt = 0; attempt < 40; ++attempt) {
+    Sleep(50);
+    if (!Check(mixer.Read(&sessions), "read closed fixture session")) return false;
+    removed = true;
+    for (const auto& session : sessions) {
+      if (session.name == session_name) removed = false;
+    }
+    if (removed) break;
+  }
+  if (!removed) { failure = "closed external session remained in the mixer"; return false; }
+  if (mixer.SetLevel(id, 10) != S_FALSE) {
+    failure = "closed external session accepted a stale command";
+    return false;
+  }
+  return true;
+}
+
+extern "C" __declspec(dllexport) int TestMixerAcrossProcesses(
+    const char* session_name, const char* stop_name, const char* done_name) {
+  const HANDLE stop = OpenEventA(EVENT_MODIFY_STATE, FALSE, stop_name);
+  const HANDLE done = OpenEventA(SYNCHRONIZE, FALSE, done_name);
+  if (!stop || !done) { failure = "could not open test events"; return 0; }
+  bool ok = false;
+  std::thread worker([&] {
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    if (!Check(init, "initialize cross-process COM")) return;
+    ok = RunCrossProcess(session_name, stop, done);
+    CoUninitialize();
+  });
+  worker.join();
+  CloseHandle(stop);
+  CloseHandle(done);
   return ok ? 1 : 0;
 }
 

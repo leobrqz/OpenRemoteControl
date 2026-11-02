@@ -94,7 +94,8 @@ std::wstring ProcessName(DWORD pid) {
   return name;
 }
 
-std::wstring SessionName(IAudioSessionControl2* control) {
+std::wstring SessionName(IAudioSessionControl2* control,
+                         std::wstring* cached_process_name) {
   LPWSTR raw = nullptr;
   std::wstring name;
   if (SUCCEEDED(control->GetDisplayName(&raw)) && raw != nullptr) name = raw;
@@ -109,8 +110,13 @@ std::wstring SessionName(IAudioSessionControl2* control) {
     }
   }
   if (name.empty()) {
-    DWORD pid = 0;
-    if (SUCCEEDED(control->GetProcessId(&pid))) name = ProcessName(pid);
+    if (cached_process_name->empty()) {
+      DWORD pid = 0;
+      if (SUCCEEDED(control->GetProcessId(&pid))) {
+        *cached_process_name = ProcessName(pid);
+      }
+    }
+    name = *cached_process_name;
   }
   return name;
 }
@@ -122,15 +128,16 @@ std::wstring GuidString(const GUID& value) {
              : std::wstring();
 }
 
-struct LiveSession {
-  ComPtr<IAudioSessionControl2> control;
-  ComPtr<ISimpleAudioVolume> volume;
+struct Target {
+  std::wstring device_id;
+  std::wstring instance_id;
   GUID grouping{};
 };
 
 struct Group {
   MixerSession state;
-  std::vector<LiveSession> sessions;
+  Target target;
+  bool seen = false;
   bool has_active = false;
 };
 }  // namespace
@@ -138,24 +145,61 @@ struct Group {
 struct AudioMixer::Impl {
   uint64_t next_id = 1;
   std::map<std::wstring, std::string> ids;
-  std::map<std::string, std::vector<LiveSession>> live;
+  std::map<std::wstring, std::wstring> process_names;
+  // Keep identifiers rather than COM controls across reads, and resolve the
+  // current sessions when a command arrives.
+  std::map<std::string, Target> live;
 
   template <typename Apply>
   HRESULT Set(const std::string& id, Apply apply) {
     const auto item = live.find(id);
     if (item == live.end()) return S_FALSE;
+    const Target& target = item->second;
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    HRESULT status = CoCreateInstance(
+        __uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+        IID_PPV_ARGS(enumerator.GetAddressOf()));
+    if (FAILED(status)) return status;
+    ComPtr<IMMDevice> device;
+    status = enumerator->GetDevice(target.device_id.c_str(), device.GetAddressOf());
+    if (status == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) return S_FALSE;
+    if (FAILED(status)) return status;
+    DWORD device_state = 0;
+    if (FAILED(status = device->GetState(&device_state))) return status;
+    if (device_state != DEVICE_STATE_ACTIVE) return S_FALSE;
+    ComPtr<IAudioSessionManager2> manager;
+    status = device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL,
+                              nullptr, reinterpret_cast<void**>(manager.GetAddressOf()));
+    if (FAILED(status)) return status;
+    ComPtr<IAudioSessionEnumerator> list;
+    if (FAILED(status = manager->GetSessionEnumerator(list.GetAddressOf()))) return status;
+    int count = 0;
+    if (FAILED(status = list->GetCount(&count))) return status;
     bool changed = false;
     HRESULT last_error = S_OK;
-    for (const auto& session : item->second) {
+    for (int i = 0; i < count; ++i) {
+      ComPtr<IAudioSessionControl> base;
+      ComPtr<IAudioSessionControl2> control;
+      if (FAILED(list->GetSession(i, base.GetAddressOf())) || FAILED(base.As(&control))) continue;
       AudioSessionState state;
       GUID grouping{};
-      if (FAILED(session.control->GetState(&state)) ||
+      if (FAILED(control->GetState(&state)) ||
           state == AudioSessionStateExpired ||
-          FAILED(session.control->GetGroupingParam(&grouping)) ||
-          !IsEqualGUID(grouping, session.grouping)) {
+          FAILED(control->GetGroupingParam(&grouping)) ||
+          !IsEqualGUID(grouping, target.grouping)) {
         continue;
       }
-      const HRESULT status = apply(session.volume.Get());
+      if (IsEqualGUID(grouping, GUID_NULL)) {
+        LPWSTR raw_id = nullptr;
+        status = control->GetSessionInstanceIdentifier(&raw_id);
+        const bool matches = SUCCEEDED(status) && raw_id != nullptr &&
+                             target.instance_id == raw_id;
+        CoTaskMemFree(raw_id);
+        if (!matches) continue;
+      }
+      ComPtr<ISimpleAudioVolume> volume;
+      if (FAILED(base.As(&volume))) continue;
+      status = apply(volume.Get());
       if (SUCCEEDED(status)) changed = true;
       else last_error = status;
     }
@@ -182,6 +226,7 @@ HRESULT AudioMixer::Read(std::vector<MixerSession>* sessions) {
   if (FAILED(status = devices->GetCount(&device_count))) return status;
 
   std::map<std::wstring, Group> groups;
+  std::map<std::wstring, std::wstring> process_names;
   UINT available_devices = 0;
   HRESULT last_error = E_FAIL;
   for (UINT d = 0; d < device_count; ++d) {
@@ -238,8 +283,13 @@ HRESULT AudioMixer::Read(std::vector<MixerSession>* sessions) {
           !std::isfinite(level)) continue;
       auto& group = groups[key];
       const bool is_active = state == AudioSessionStateActive;
-      if (group.sessions.empty() || (is_active && !group.has_active)) {
-        group.state.name = ToUtf8(SessionName(control.Get()));
+      if (!group.seen || (is_active && !group.has_active)) {
+        auto& process_name = process_names[key];
+        if (process_name.empty()) {
+          const auto cached = impl_->process_names.find(key);
+          if (cached != impl_->process_names.end()) process_name = cached->second;
+        }
+        group.state.name = ToUtf8(SessionName(control.Get(), &process_name));
         group.state.device = device_name;
         group.state.level = static_cast<int32_t>(
             std::lround(std::clamp(level, 0.0f, 1.0f) * 100.0f));
@@ -247,13 +297,16 @@ HRESULT AudioMixer::Read(std::vector<MixerSession>* sessions) {
         group.state.system_sounds = control->IsSystemSoundsSession() == S_OK;
         group.has_active = is_active;
       }
-      group.sessions.push_back({control, volume, grouping});
+      if (!group.seen) {
+        group.target = {device_id, instance_id, grouping};
+        group.seen = true;
+      }
     }
   }
   if (device_count > 0 && available_devices == 0) return last_error;
 
   std::map<std::wstring, std::string> next_ids;
-  std::map<std::string, std::vector<LiveSession>> next_live;
+  std::map<std::string, Target> next_live;
   std::vector<MixerSession> next_sessions;
   for (auto& [key, group] : groups) {
     const auto old = impl_->ids.find(key);
@@ -261,7 +314,7 @@ HRESULT AudioMixer::Read(std::vector<MixerSession>* sessions) {
         ? std::to_string(impl_->next_id++) : old->second;
     next_ids.emplace(key, id);
     group.state.id = id;
-    next_live.emplace(id, std::move(group.sessions));
+    next_live.emplace(id, std::move(group.target));
     next_sessions.push_back(std::move(group.state));
   }
   std::sort(next_sessions.begin(), next_sessions.end(), [](const auto& a, const auto& b) {
@@ -270,6 +323,7 @@ HRESULT AudioMixer::Read(std::vector<MixerSession>* sessions) {
     return a.id < b.id;
   });
   impl_->ids = std::move(next_ids);
+  impl_->process_names = std::move(process_names);
   impl_->live = std::move(next_live);
   *sessions = std::move(next_sessions);
   return S_OK;

@@ -1,17 +1,59 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_remote_core/open_remote_core.dart';
-import 'package:open_remote_server/src/host/volume_publisher.dart';
+import 'package:open_remote_server/src/host/state_publisher.dart';
 
 void main() {
+  testWidgets('publishes mixer snapshots only when their contents change', (
+    tester,
+  ) async {
+    var current = [
+      const AudioAppState(
+        id: '1',
+        name: 'Player',
+        device: 'Speakers',
+        level: 20,
+        muted: false,
+        systemSounds: false,
+      ),
+    ];
+    final sent = <List<AudioAppState>?>[];
+    final publisher = StatePublisher<List<AudioAppState>>(
+      read: () async => List.of(current),
+      send: (state) async => sent.add(state),
+      equals: listEquals,
+      onReadError: (error, _) => fail('$error'),
+      onSendError: (error, _) => fail('$error'),
+    )..start();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(sent.length, 1);
+    current = [
+      const AudioAppState(
+        id: '1',
+        name: 'Player',
+        device: 'Speakers',
+        level: 21,
+        muted: true,
+        systemSounds: false,
+      ),
+    ];
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(sent.length, 2);
+    expect(sent.last!.single.level, 21);
+    expect(sent.last!.single.muted, isTrue);
+    publisher.stop();
+  });
+
   testWidgets('publishes changes, mute, device loss and recovery', (
     tester,
   ) async {
     VolumeState? current = const VolumeState(level: 37, muted: false);
     final sent = <VolumeState?>[];
     final errors = <Object>[];
-    final publisher = VolumePublisher(
+    final publisher = StatePublisher<VolumeState>(
       read: () async => current,
       send: (state) async => sent.add(state),
       onReadError: (error, _) => errors.add(error),
@@ -50,7 +92,7 @@ void main() {
     var failed = false;
     final sent = <VolumeState?>[];
     final errors = <Object>[];
-    final publisher = VolumePublisher(
+    final publisher = StatePublisher<VolumeState>(
       read: () async {
         if (failed) throw StateError('audio offline');
         return const VolumeState(level: 50, muted: false);
@@ -80,7 +122,7 @@ void main() {
     final read = Completer<VolumeState?>();
     var reads = 0;
     final sent = <VolumeState?>[];
-    final publisher = VolumePublisher(
+    final publisher = StatePublisher<VolumeState>(
       read: () {
         reads++;
         return read.future;
