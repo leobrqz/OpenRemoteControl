@@ -143,6 +143,21 @@ class AppLocalizationsPt extends AppLocalizations {
   String get muted => 'Sem som';
 
   @override
+  String get audioMixer => 'Mixer de volume';
+
+  @override
+  String get noAudioSessions => 'Nenhum aplicativo com áudio.';
+
+  @override
+  String get audioApplication => 'Aplicativo';
+
+  @override
+  String get systemSounds => 'Sons do sistema';
+
+  @override
+  String get unmute => 'Ativar som';
+
+  @override
   String get decreaseVolume => 'Diminuir';
 
   @override
@@ -841,6 +856,21 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get muted => 'Sem som';
+
+  @override
+  String get audioMixer => 'Mixer de volume';
+
+  @override
+  String get noAudioSessions => 'Nenhum aplicativo com áudio.';
+
+  @override
+  String get audioApplication => 'Aplicativo';
+
+  @override
+  String get systemSounds => 'Sons do sistema';
+
+  @override
+  String get unmute => 'Ativar som';
 
   @override
   String get decreaseVolume => 'Diminuir';

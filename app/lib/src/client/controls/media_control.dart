@@ -3,6 +3,7 @@ import 'package:open_remote_control/l10n/app_localizations.dart';
 import 'package:open_remote_core/open_remote_core.dart';
 
 import 'remote_actions.dart';
+import 'audio_mixer_control.dart';
 
 class MediaControl extends StatelessWidget {
   const MediaControl({
@@ -10,10 +11,12 @@ class MediaControl extends StatelessWidget {
     required this.actions,
     required this.active,
     this.volumeState,
+    this.audioSessions,
   });
   final RemoteActions actions;
   final bool active;
   final VolumeState? volumeState;
+  final List<AudioAppState>? audioSessions;
 
   Widget _button(
     BuildContext context,
@@ -108,6 +111,12 @@ class MediaControl extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    AudioMixerControl(
+                      actions: actions,
+                      active: active,
+                      sessions: audioSessions,
                     ),
                     const SizedBox(height: 32),
                     Row(

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_remote_control/main.dart';
 import 'package:open_remote_control/src/client/client_screen.dart';
 import 'package:open_remote_control/src/client/client_service.dart';
+import 'package:open_remote_control/src/client/controls/audio_mixer_control.dart';
 import 'package:open_remote_control/src/client/controls/media_control.dart';
 import 'package:open_remote_control/src/client/controls/mouse_control.dart';
 import 'package:open_remote_control/src/client/preferences/client_preferences.dart';
@@ -22,6 +23,7 @@ const _host = SavedHost(
 class _FakeService extends RemoteClientService {
   bool connected = false, session = false;
   VolumeState? volume;
+  List<AudioAppState>? sessions;
   int reconnects = 0;
   final commands = <Map<String, Object?>>[];
   @override
@@ -34,6 +36,8 @@ class _FakeService extends RemoteClientService {
   String? get connectedAddress => session ? '192.168.1.2' : null;
   @override
   VolumeState? get volumeState => volume;
+  @override
+  List<AudioAppState>? get audioSessions => sessions;
   @override
   Future<List<SavedHost>> loadSavedHosts() async => [_host];
   @override
@@ -72,6 +76,11 @@ class _FakeService extends RemoteClientService {
 
   void setVolume(VolumeState? value) {
     volume = value;
+    notifyListeners();
+  }
+
+  void setSessions(List<AudioAppState>? value) {
+    sessions = value;
     notifyListeners();
   }
 }
@@ -250,6 +259,114 @@ void main() {
       p.dispose();
     },
   );
+
+  androidTest('mixer controls each application and follows Windows updates', (
+    tester,
+  ) async {
+    final p = await preferences();
+    final service = _FakeService();
+    const player = AudioAppState(
+      id: '1',
+      name: 'Music Player',
+      device: 'Speakers',
+      level: 40,
+      muted: false,
+      systemSounds: false,
+    );
+    const system = AudioAppState(
+      id: '2',
+      name: '',
+      device: 'Headphones',
+      level: 75,
+      muted: false,
+      systemSounds: true,
+    );
+    service.setSessions([player, system]);
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('pt', 'BR'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ClientScreen(preferences: p, service: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test PC'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mídia'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Mixer de volume'));
+    await tester.tap(find.text('Mixer de volume'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Music Player'));
+    expect(find.text('Speakers'), findsOneWidget);
+    expect(find.text('Sons do sistema'), findsOneWidget);
+
+    final slider = find.byType(Slider).first;
+    await tester.ensureVisible(slider);
+    await tester.tapAt(tester.getCenter(slider));
+    await tester.pump();
+    expect(service.commands.last, {
+      'kind': 'audio.session.level',
+      'id': '1',
+      'level': 50,
+    });
+    final tile = find
+        .ancestor(
+          of: find.text('Music Player'),
+          matching: find.byType(ListTile),
+        )
+        .first;
+    await tester.ensureVisible(tile);
+    await tester.tap(
+      find.descendant(of: tile, matching: find.byTooltip('Mudo')),
+    );
+    await tester.pump();
+    expect(service.commands.last, {
+      'kind': 'audio.session.mute',
+      'id': '1',
+      'muted': true,
+    });
+    service.setSessions([
+      const AudioAppState(
+        id: '1',
+        name: 'Music Player',
+        device: 'Speakers',
+        level: 50,
+        muted: true,
+        systemSounds: false,
+      ),
+      system,
+    ]);
+    await tester.pump();
+    expect(find.byTooltip('Ativar som'), findsOneWidget);
+    service.setSessions([
+      const AudioAppState(
+        id: '1',
+        name: 'Music Player',
+        device: 'Speakers',
+        level: 73,
+        muted: true,
+        systemSounds: false,
+      ),
+      system,
+    ]);
+    await tester.pump();
+    expect(find.text('73%'), findsOneWidget);
+    service.drop();
+    await tester.pump();
+    expect(find.byType(Slider), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AudioMixerControl),
+        matching: find.text('Indisponível'),
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    p.dispose();
+  });
 
   androidTest(
     'disabling automatic reconnect and background service is effective',

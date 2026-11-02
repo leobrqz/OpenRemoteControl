@@ -21,11 +21,14 @@ class _ServerSession {
   }
 }
 
-Future<void> _waitFor(bool Function() condition) async {
+Future<void> _waitFor(
+  bool Function() condition, [
+  String label = 'state',
+]) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
   while (!condition()) {
     if (DateTime.now().isAfter(deadline)) {
-      throw TimeoutException('State did not arrive');
+      throw TimeoutException('$label did not arrive');
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
@@ -153,23 +156,56 @@ void main() {
         expect(await accepted.moveNext(), true);
         final first = accepted.current;
         expect(first.auth['features'], contains(volumeStateFeature));
+        expect(first.auth['features'], contains(audioMixerFeature));
         expect(client.volumeState, isNull);
+        expect(client.audioSessions, isNull);
 
         await first.send(
           const VolumeState(level: 60, muted: false).toMessage(),
         );
-        await _waitFor(() => client.volumeState?.level == 60);
+        await _waitFor(() => client.volumeState?.level == 60, 'initial volume');
         await first.send({
           'kind': volumeStateFeature,
           'level': 120,
           'muted': false,
         });
         await first.send(const VolumeState(level: 60, muted: true).toMessage());
-        await _waitFor(() => client.volumeState?.muted == true);
+        await _waitFor(() => client.volumeState?.muted == true, 'muted volume');
         expect(observed.whereType<VolumeState>(), [
           const VolumeState(level: 60, muted: false),
           const VolumeState(level: 60, muted: true),
         ]);
+
+        final apps = List.generate(
+          24,
+          (index) => AudioAppState(
+            id: '${index + 1}',
+            name: '🎵' * 80,
+            device: 'Speakers',
+            level: 40,
+            muted: false,
+            systemSounds: false,
+          ),
+        );
+        final chunks = audioMixerFrames(apps, 0);
+        expect(chunks.length, greaterThan(1));
+        await first.send(chunks.first);
+        await first.send(
+          const VolumeState(level: 61, muted: false).toMessage(),
+        );
+        await _waitFor(
+          () => client.volumeState?.level == 61,
+          'interleaved volume',
+        );
+        expect(client.audioSessions, isNull);
+        for (final chunk in chunks.skip(1)) {
+          await first.send(chunk);
+        }
+        await _waitFor(
+          () => client.audioSessions?.length == apps.length,
+          'mixer snapshot',
+        );
+        expect(client.audioSessions, apps);
 
         await client.send({'kind': 'media.command', 'action': 'volumeUp'});
         expect(await first.iterator.moveNext(), true);
@@ -177,29 +213,56 @@ void main() {
           'kind': 'media.command',
           'action': 'volumeUp',
         });
+        await client.send({
+          'kind': 'audio.session.level',
+          'id': '1',
+          'level': 70,
+        });
+        expect(await first.iterator.moveNext(), true);
+        expect(await first.secure.decryptWireFrame(first.iterator.current), {
+          'kind': 'audio.session.level',
+          'id': '1',
+          'level': 70,
+        });
+
+        await first.send(audioMixerFrames(null, 1).single);
+        await _waitFor(() => client.audioSessions == null, 'unavailable mixer');
+        await first.send(audioMixerFrames([apps.first], 2).single);
+        await _waitFor(
+          () => client.audioSessions?.length == 1,
+          'recovered mixer',
+        );
 
         await first.send({
           'kind': volumeStateFeature,
           'level': null,
           'muted': null,
         });
-        await _waitFor(() => client.volumeState == null);
+        await _waitFor(() => client.volumeState == null, 'unavailable volume');
         await first.send(
           const VolumeState(level: 10, muted: false).toMessage(),
         );
-        await _waitFor(() => client.volumeState?.level == 10);
+        await _waitFor(
+          () => client.volumeState?.level == 10,
+          'recovered volume',
+        );
         await first.socket.close();
-        await _waitFor(() => !client.isConnected);
+        await _waitFor(() => !client.isConnected, 'disconnect');
         expect(client.volumeState, isNull);
+        expect(client.audioSessions, isNull);
 
         await client.reconnect();
         expect(await accepted.moveNext(), true);
         final second = accepted.current;
         expect(client.volumeState, isNull);
+        expect(client.audioSessions, isNull);
         await second.send(
           const VolumeState(level: 78, muted: false).toMessage(),
         );
-        await _waitFor(() => client.volumeState?.level == 78);
+        await _waitFor(
+          () => client.volumeState?.level == 78,
+          'reconnected volume',
+        );
         await client.disconnect();
         expect(client.volumeState, isNull);
         await second.iterator.cancel();

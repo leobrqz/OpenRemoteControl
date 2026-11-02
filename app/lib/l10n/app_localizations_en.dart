@@ -143,6 +143,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get muted => 'Muted';
 
   @override
+  String get audioMixer => 'Volume mixer';
+
+  @override
+  String get noAudioSessions => 'No apps with audio.';
+
+  @override
+  String get audioApplication => 'Application';
+
+  @override
+  String get systemSounds => 'System sounds';
+
+  @override
+  String get unmute => 'Unmute';
+
+  @override
   String get decreaseVolume => 'Decrease';
 
   @override

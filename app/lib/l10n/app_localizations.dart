@@ -357,6 +357,36 @@ abstract class AppLocalizations {
   /// **'Muted'**
   String get muted;
 
+  /// No description provided for @audioMixer.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume mixer'**
+  String get audioMixer;
+
+  /// No description provided for @noAudioSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'No apps with audio.'**
+  String get noAudioSessions;
+
+  /// No description provided for @audioApplication.
+  ///
+  /// In en, this message translates to:
+  /// **'Application'**
+  String get audioApplication;
+
+  /// No description provided for @systemSounds.
+  ///
+  /// In en, this message translates to:
+  /// **'System sounds'**
+  String get systemSounds;
+
+  /// No description provided for @unmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get unmute;
+
   /// No description provided for @decreaseVolume.
   ///
   /// In en, this message translates to:

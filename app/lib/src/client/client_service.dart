@@ -43,6 +43,8 @@ class RemoteClientService extends ChangeNotifier {
   String? _connectedAddress;
   SavedHost? _lastConnectedHost;
   VolumeState? _volumeState;
+  List<AudioAppState>? _audioSessions;
+  AudioMixerAssembler? _audioMixerAssembler;
   ClientMessage? _lastError;
   List<DiscoveredHost> _discoveredHosts = const [];
   bool _disposed = false;
@@ -57,6 +59,7 @@ class RemoteClientService extends ChangeNotifier {
   ClientMessage? get lastError => _lastError;
   SavedHost? get currentHost => _lastConnectedHost;
   VolumeState? get volumeState => _volumeState;
+  List<AudioAppState>? get audioSessions => _audioSessions;
 
   Future<void> forgetHost(String serverId) async {
     await _repository.forgetHost(serverId);
@@ -622,7 +625,7 @@ class RemoteClientService extends ChangeNotifier {
               'clientToken': profile['clientToken'],
               ...deviceIdentity.authFields,
             };
-      auth['features'] = [volumeStateFeature];
+      auth['features'] = [volumeStateFeature, audioMixerFeature];
       socket.add(jsonEncode(await session.encrypt(auth)));
       final authResult = await session.decrypt(
         await _nextMap(
@@ -694,6 +697,7 @@ class RemoteClientService extends ChangeNotifier {
       _pendingSocket = null;
       _iterator = iterator;
       _session = session;
+      _audioMixerAssembler = AudioMixerAssembler();
       unawaited(_listenForServerMessages(socket, iterator, session));
     } catch (_) {
       if (_pendingSocket == socket) _pendingSocket = null;
@@ -746,6 +750,8 @@ class RemoteClientService extends ChangeNotifier {
     final socket = _socket;
     _socket = null;
     _volumeState = null;
+    _audioSessions = null;
+    _audioMixerAssembler = null;
     await pending?.close(WebSocketStatus.normalClosure);
     await iterator?.cancel();
     await socket?.close(WebSocketStatus.normalClosure);
@@ -775,6 +781,13 @@ class RemoteClientService extends ChangeNotifier {
             _volumeState = state;
             _notifyListeners();
           }
+        } else if (message['kind'] == audioMixerFeature) {
+          final snapshot = _audioMixerAssembler?.add(message);
+          if (snapshot != null &&
+              !listEquals(snapshot.sessions, _audioSessions)) {
+            _audioSessions = snapshot.sessions;
+            _notifyListeners();
+          }
         }
       }
     } catch (error, stackTrace) {
@@ -791,6 +804,8 @@ class RemoteClientService extends ChangeNotifier {
         _iterator = null;
         _session = null;
         _volumeState = null;
+        _audioSessions = null;
+        _audioMixerAssembler = null;
         _lastError = ClientMessage(
           disconnectReason == null
               ? 'serverClosedConnection'

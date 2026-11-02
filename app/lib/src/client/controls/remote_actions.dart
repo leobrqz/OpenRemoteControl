@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:open_remote_core/open_remote_core.dart';
 
 import '../preferences/client_preferences.dart';
 
@@ -21,6 +22,8 @@ class RemoteActions {
   final void Function(Object)? onError;
   final VoidCallback _vibrate;
   final Set<String> _heldButtons = {}, _heldModifiers = {};
+  final Map<String, int> _pendingAudioLevels = {};
+  Timer? _audioTimer;
   Timer? _motionTimer;
   double _dx = 0, _dy = 0, _scroll = 0;
   bool _disposed = false;
@@ -128,6 +131,31 @@ class RemoteActions {
   }, feedback: false);
   void media(String action) =>
       command({'kind': 'media.command', 'action': action});
+  void audioLevel(String id, int level) {
+    if (_disposed || !connected()) return;
+    _pendingAudioLevels[id] = level.clamp(0, 100);
+    _audioTimer ??= Timer(const Duration(milliseconds: 100), flushAudioLevels);
+  }
+
+  void flushAudioLevels() {
+    _audioTimer?.cancel();
+    _audioTimer = null;
+    final pending = Map<String, int>.of(_pendingAudioLevels);
+    _pendingAudioLevels.clear();
+    for (final entry in pending.entries) {
+      command({
+        'kind': audioSessionLevelCommand,
+        'id': entry.key,
+        'level': entry.value,
+      }, feedback: false);
+    }
+  }
+
+  void audioMute(String id, bool muted) {
+    flushAudioLevels();
+    command({'kind': audioSessionMuteCommand, 'id': id, 'muted': muted});
+  }
+
   void key(String key) => command({'kind': 'keyboard.key', 'key': key});
   void text(String text) {
     // Split on rune boundaries so Unicode and the server's 512-code-unit limit survive.
@@ -158,6 +186,7 @@ class RemoteActions {
 
   void releaseAll() {
     flushMotion();
+    flushAudioLevels();
     for (final button in _heldButtons.toList()) {
       releaseButton(button);
     }
@@ -171,5 +200,6 @@ class RemoteActions {
     releaseAll();
     _disposed = true;
     _motionTimer?.cancel();
+    _audioTimer?.cancel();
   }
 }

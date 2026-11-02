@@ -3,6 +3,38 @@ import 'package:open_remote_control/src/client/controls/remote_actions.dart';
 import 'package:open_remote_control/src/client/preferences/client_preferences.dart';
 
 void main() {
+  testWidgets('coalesces mixer drags and flushes before muting', (
+    tester,
+  ) async {
+    var connected = true;
+    final commands = <Map<String, Object?>>[];
+    final actions = RemoteActions(
+      send: (command) async => commands.add(command),
+      preferences: () => const ClientPreferences(hapticFeedback: false),
+      connected: () => connected,
+    );
+    actions.audioLevel('1', 10);
+    actions.audioLevel('1', 20);
+    actions.audioLevel('2', 30);
+    expect(commands, isEmpty);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(commands, [
+      {'kind': 'audio.session.level', 'id': '1', 'level': 20},
+      {'kind': 'audio.session.level', 'id': '2', 'level': 30},
+    ]);
+    actions.audioLevel('1', 60);
+    actions.audioMute('1', true);
+    expect(commands.skip(2), [
+      {'kind': 'audio.session.level', 'id': '1', 'level': 60},
+      {'kind': 'audio.session.mute', 'id': '1', 'muted': true},
+    ]);
+    actions.audioLevel('1', 80);
+    connected = false;
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(commands.length, 4);
+    actions.dispose();
+  });
+
   test(
     'swap buttons, invert and scale scrolling, and release the original held button',
     () {
