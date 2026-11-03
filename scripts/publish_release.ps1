@@ -42,6 +42,7 @@ try {
         $badging[0] -notmatch "versionName='$version'") { throw 'APK version/build mismatch.' }
     $cert = & (Join-Path $tools.FullName 'apksigner.bat') verify --print-certs (Join-Path $android $apkName)
     if ($LASTEXITCODE -ne 0) { throw 'APK signature validation failed.' }
+    $signers = @(Get-ApkSignerDigests $cert)
     # Compare to the last distributed APK, rather than relying on a local key filename.
     $previous = gh release view --json tagName --jq '.tagName'
     if ($LASTEXITCODE -ne 0) { throw 'Cannot determine the previous release.' }
@@ -52,8 +53,9 @@ try {
     gh release download $previous --pattern $apkName --dir $baseline --clobber
     if ($LASTEXITCODE -ne 0) { throw 'Cannot verify APK signing-key continuity.' }
     $previousCert = & (Join-Path $tools.FullName 'apksigner.bat') verify --print-certs (Join-Path $baseline $apkName)
-    if ($LASTEXITCODE -ne 0 -or ($previousCert | Where-Object { $_ -like 'Signer #1 certificate SHA-256 digest:*' }) -ne
-        ($cert | Where-Object { $_ -like 'Signer #1 certificate SHA-256 digest:*' })) { throw 'Android signing key changed.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Previous APK signature validation failed.' }
+    $previousSigners = @(Get-ApkSignerDigests $previousCert)
+    if (($previousSigners -join ',') -cne ($signers -join ',')) { throw 'Android signing key changed.' }
     if ($ValidateOnly) { Write-Output "Validated $Tag+$($product.Build), managed portable feed, checksums, Android update catalog and APK signing continuity."; return }
 
     $ErrorActionPreference = 'Continue'

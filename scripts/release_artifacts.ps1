@@ -1,6 +1,13 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+function Get-ApkSignerDigests([string[]]$Output) {
+    $digests = @([regex]::Matches(($Output -join "`n"), 'certificate SHA-256 digest:\s*([A-Fa-f0-9]{64})') |
+        ForEach-Object { $_.Groups[1].Value.ToLowerInvariant() } | Sort-Object -Unique)
+    if ($digests.Count -eq 0) { throw 'APK signer SHA-256 certificate digest is missing.' }
+    return $digests
+}
+
 function Get-ProductVersion([string]$Root) {
     $app = [regex]::Match([IO.File]::ReadAllText((Join-Path $Root 'app/pubspec.yaml')), '(?m)^version: (\d+\.\d+\.\d+)\+(\d+)\s*$')
     $server = [regex]::Match([IO.File]::ReadAllText((Join-Path $Root 'web/server/pubspec.yaml')), '(?m)^version: (\d+\.\d+\.\d+)\+(\d+)\s*$')
