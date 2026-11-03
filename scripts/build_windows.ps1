@@ -31,7 +31,7 @@ try {
         throw "Dashboard dependency installation failed with exit code $LASTEXITCODE."
     }
 
-    & npm run build
+    & npm run build 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "Dashboard asset build failed with exit code $LASTEXITCODE."
     }
