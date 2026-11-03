@@ -1,7 +1,7 @@
 name: open_remote_control
-description: "Controle remoto open source para Windows via rede local"
+description: "Open source Android remote for Windows over local or remote networks."
 publish_to: 'none'
-version: 0.5.0+13
+version: 0.6.0+14
 
 environment:
   sdk: ^3.12.1
