@@ -30,12 +30,17 @@ class ComputersPage extends StatelessWidget {
     required String name,
     required String address,
     required bool paired,
+    required bool local,
     required VoidCallback connect,
     SavedHost? saved,
   }) {
     final l10n = AppLocalizations.of(context)!;
     final connected =
         service.isConnected && service.currentHost?.serverId == id;
+    final routes = [
+      if (local) l10n.connectionLocal,
+      if (saved?.remoteEndpoint != null) l10n.connectionPersistent,
+    ];
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -50,7 +55,7 @@ class ComputersPage extends StatelessWidget {
                 ? l10n.connected
                 : paired
                 ? l10n.paired
-                : l10n.available} · $address',
+                : l10n.available} · $address${routes.isEmpty ? '' : ' · ${routes.join(' · ')}'}',
           ),
           onTap: service.isConnecting
               ? null
@@ -143,6 +148,7 @@ class ComputersPage extends StatelessWidget {
                 id: host.serverId,
                 name: host.name,
                 address: host.addresses.first,
+                local: true,
                 paired: savedHosts.any(
                   (saved) => saved.serverId == host.serverId,
                 ),
@@ -157,6 +163,7 @@ class ComputersPage extends StatelessWidget {
                 id: host.serverId,
                 name: host.name,
                 address: host.addresses.first,
+                local: host.remoteEndpoint == null,
                 paired: true,
                 saved: host,
                 connect: () => onConnectSaved(host),

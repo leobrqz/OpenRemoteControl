@@ -255,6 +255,18 @@ abstract class AppLocalizations {
   /// **'Available'**
   String get available;
 
+  /// No description provided for @connectionLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Local'**
+  String get connectionLocal;
+
+  /// No description provided for @connectionPersistent.
+  ///
+  /// In en, this message translates to:
+  /// **'Persistent'**
+  String get connectionPersistent;
+
   /// No description provided for @openControls.
   ///
   /// In en, this message translates to:
@@ -294,7 +306,7 @@ abstract class AppLocalizations {
   /// No description provided for @startServerConnectWifi.
   ///
   /// In en, this message translates to:
-  /// **'Start the server on your PC and connect both devices to the same Wi-Fi network.'**
+  /// **'Start the server on your PC, then search locally or scan its QR code.'**
   String get startServerConnectWifi;
 
   /// No description provided for @connect.

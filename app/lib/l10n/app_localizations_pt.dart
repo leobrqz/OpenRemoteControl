@@ -90,6 +90,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get available => 'Disponível';
 
   @override
+  String get connectionLocal => 'Local';
+
+  @override
+  String get connectionPersistent => 'Persistente';
+
+  @override
   String get openControls => 'Abrir controles';
 
   @override
@@ -109,7 +115,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get startServerConnectWifi =>
-      'Inicie o servidor no PC e conecte os dois à mesma rede Wi-Fi.';
+      'Inicie o servidor no PC e procure na rede local ou escaneie o QR code.';
 
   @override
   String get connect => 'Conectar';
@@ -805,6 +811,12 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   String get available => 'Disponível';
 
   @override
+  String get connectionLocal => 'Local';
+
+  @override
+  String get connectionPersistent => 'Persistente';
+
+  @override
   String get openControls => 'Abrir controles';
 
   @override
@@ -824,7 +836,7 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get startServerConnectWifi =>
-      'Inicie o servidor no PC e conecte os dois à mesma rede Wi-Fi.';
+      'Inicie o servidor no PC e procure na rede local ou escaneie o QR code.';
 
   @override
   String get connect => 'Conectar';

@@ -34,7 +34,7 @@ Android and the Windows dashboard default to US English. Choose **English** or *
 
 ## Build
 
-On Windows, install Flutter, the Android SDK, Node.js, the .NET SDK (build only) and Visual Studio's **Desktop development with C++** workload. Velopack SDK and CLI are pinned to 1.2.161. From the repository root:
+On Windows, install Flutter, the Android SDK with NDK, Rust, Node.js, the .NET SDK (build only) and Visual Studio's **Desktop development with C++** workload. The Iroh plugin compiles its Rust networking library for Android and Windows. Velopack SDK and CLI are pinned to 1.2.161. From the repository root:
 
 ```powershell
 .\scripts\build_windows.ps1
@@ -62,8 +62,10 @@ For dashboard development, start the Windows app and run `npm run dev` from `web
 ## Connect
 
 1. Extract the Windows ZIP into a user-writable directory and run its root `Open Remote Control.exe` launcher. Double-click its tray icon to open the dashboard in your browser.
-2. Install the Android APK and connect both devices to the same local network.
-3. Select the discovered PC and approve the phone in the dashboard, or scan the pairing QR. Access is saved for future connections.
+2. Install the Android APK. On the same network, select the discovered PC and approve the phone in the dashboard.
+3. To use the PC from another network, scan the dashboard's pairing QR and save the connection. The PC must remain running and connected to the internet.
+
+Persistent connections use Iroh's free public infrastructure to find each other and, when a direct connection cannot be established, relay end-to-end encrypted traffic. These shared relays have rate limits and no uptime guarantee; operators can see connection metadata such as IP addresses. Local discovery remains available without the relay.
 
 Windows checks for updates after startup; approve downloading and restarting under **About > Updates** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
 Keep the managed directory in place: updates retain the executable path and its existing Windows Firewall authorization.

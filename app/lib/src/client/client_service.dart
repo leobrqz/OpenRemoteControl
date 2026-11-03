@@ -21,19 +21,22 @@ class RemoteClientService extends ChangeNotifier {
     HostRepository? repository,
     Future<ClientDeviceIdentity> Function()? deviceIdentityProvider,
     Future<WebSocket> Function(Uri)? socketConnector,
+    Future<ControlChannel> Function(String)? persistentConnector,
   }) : _repository = repository ?? SecureHostRepository(storage: storage),
        _deviceIdentityProvider =
            deviceIdentityProvider ?? ClientDeviceIdentity.load,
-       _socketConnector = socketConnector ?? _connectSocket;
+       _socketConnector = socketConnector ?? _connectSocket,
+       _persistentConnector = persistentConnector ?? connectPersistent;
 
   final HostRepository _repository;
   final Future<ClientDeviceIdentity> Function() _deviceIdentityProvider;
   final Future<WebSocket> Function(Uri) _socketConnector;
+  final Future<ControlChannel> Function(String) _persistentConnector;
   final X25519 _keyExchange = X25519();
   final Ed25519 _signatures = Ed25519();
 
-  WebSocket? _socket;
-  WebSocket? _pendingSocket;
+  ControlChannel? _socket;
+  ControlChannel? _pendingSocket;
   StreamIterator<Object?>? _iterator;
   SecureSession? _session;
   Future<void> _sendQueue = Future<void>.value();
@@ -310,6 +313,7 @@ class RemoteClientService extends ChangeNotifier {
         pairingToken: pairing.pairingToken,
         profile: profile,
         requestApproval: false,
+        remoteEndpoint: pairing.remoteEndpoint ?? _savedRemoteEndpoint(profile),
       );
     } on _SavedAuthorizationRejected {
       if (profile == null || DateTime.now().isAfter(pairing.expiresAt)) rethrow;
@@ -323,6 +327,7 @@ class RemoteClientService extends ChangeNotifier {
         pairingToken: pairing.pairingToken,
         profile: null,
         requestApproval: false,
+        remoteEndpoint: pairing.remoteEndpoint,
       );
     }
   }
@@ -347,6 +352,7 @@ class RemoteClientService extends ChangeNotifier {
       profile: profile,
       requestApproval: false,
       serverName: host.name,
+      remoteEndpoint: host.remoteEndpoint,
     );
   }
 
@@ -373,6 +379,7 @@ class RemoteClientService extends ChangeNotifier {
         profile: profile,
         requestApproval: profile == null,
         serverName: host.name,
+        remoteEndpoint: _savedRemoteEndpoint(profile),
       );
     } on _SavedAuthorizationRejected {
       if (profile == null) rethrow;
@@ -401,6 +408,7 @@ class RemoteClientService extends ChangeNotifier {
     required Map<String, dynamic>? profile,
     required bool requestApproval,
     String serverName = 'PC Windows',
+    String? remoteEndpoint,
   }) async {
     if (_isConnecting) return;
     _isConnecting = true;
@@ -413,9 +421,63 @@ class RemoteClientService extends ChangeNotifier {
       if (generation != _connectionGeneration || _disposed) {
         throw const _ConnectionCancelled();
       }
-      await _ensureLocalNetworkPermission();
       final deviceIdentity = await _loadDeviceIdentity();
-      for (final address in addresses.where(isPrivateIpv4)) {
+      final discoveredLocally = _discoveredHosts.any(
+        (host) => host.serverId == serverId,
+      );
+      if (remoteEndpoint != null && !discoveredLocally) {
+        try {
+          final socket = await _persistentConnector(remoteEndpoint);
+          await _finishConnection(
+            socket: socket,
+            addresses: addresses,
+            serverId: serverId,
+            port: port,
+            signingPublicKey: signingPublicKey,
+            pairingToken: pairingToken,
+            profile: profile,
+            requestApproval: requestApproval,
+            deviceIdentity: deviceIdentity,
+            serverName: serverName,
+            generation: generation,
+            remoteEndpoint: remoteEndpoint,
+          );
+          _connectedAddress = 'Persistent';
+          _lastConnectedHost = SavedHost(
+            serverId: serverId,
+            name: serverName,
+            addresses: addresses,
+            port: port,
+            signingPublicKey: signingPublicKey,
+            remoteEndpoint: remoteEndpoint,
+          );
+          return;
+        } on _ConnectionCancelled {
+          rethrow;
+        } on _SavedAuthorizationRejected {
+          rethrow;
+        } on ClientMessageException {
+          rethrow;
+        } catch (error, stackTrace) {
+          failures.add(error.toString());
+          await DiagnosticLog.record(
+            'Android',
+            'Persistent connection failed.',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+      var localAllowed = true;
+      try {
+        await _ensureLocalNetworkPermission();
+      } on ClientMessageException {
+        if (remoteEndpoint == null || !discoveredLocally) rethrow;
+        localAllowed = false;
+      }
+      for (final address in addresses.where(
+        (address) => localAllowed && isPrivateIpv4(address),
+      )) {
         try {
           await DiagnosticLog.record(
             'Android',
@@ -433,6 +495,7 @@ class RemoteClientService extends ChangeNotifier {
             deviceIdentity: deviceIdentity,
             serverName: serverName,
             generation: generation,
+            remoteEndpoint: remoteEndpoint,
           );
           _connectedAddress = address;
           _lastConnectedHost = SavedHost(
@@ -441,6 +504,7 @@ class RemoteClientService extends ChangeNotifier {
             addresses: addresses.where(isPrivateIpv4).toList(growable: false),
             port: port,
             signingPublicKey: signingPublicKey,
+            remoteEndpoint: remoteEndpoint,
           );
           await DiagnosticLog.record(
             'Android',
@@ -462,6 +526,33 @@ class RemoteClientService extends ChangeNotifier {
             stackTrace: stackTrace,
           );
         }
+      }
+      if (remoteEndpoint != null && discoveredLocally) {
+        final socket = await _persistentConnector(remoteEndpoint);
+        await _finishConnection(
+          socket: socket,
+          addresses: addresses,
+          serverId: serverId,
+          port: port,
+          signingPublicKey: signingPublicKey,
+          pairingToken: pairingToken,
+          profile: profile,
+          requestApproval: requestApproval,
+          deviceIdentity: deviceIdentity,
+          serverName: serverName,
+          generation: generation,
+          remoteEndpoint: remoteEndpoint,
+        );
+        _connectedAddress = 'Persistent';
+        _lastConnectedHost = SavedHost(
+          serverId: serverId,
+          name: serverName,
+          addresses: addresses,
+          port: port,
+          signingPublicKey: signingPublicKey,
+          remoteEndpoint: remoteEndpoint,
+        );
+        return;
       }
       throw _ConnectionAttemptsFailed(
         ClientMessage('networkFailure', detail: failures.take(4).toList()),
@@ -501,6 +592,17 @@ class RemoteClientService extends ChangeNotifier {
     }
   }
 
+  String? _savedRemoteEndpoint(Map<String, dynamic>? profile) {
+    final value = profile?['remoteEndpoint'];
+    if (value is! String) return null;
+    try {
+      decodeBytes(value, exactLength: 32);
+      return value;
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<ClientDeviceIdentity> _loadDeviceIdentity() async {
     try {
       return await _deviceIdentityProvider().timeout(
@@ -524,28 +626,59 @@ class RemoteClientService extends ChangeNotifier {
     required ClientDeviceIdentity deviceIdentity,
     required String serverName,
     required int generation,
+    required String? remoteEndpoint,
   }) async {
-    final signingPublicKeyBytes = decodeBytes(
-      signingPublicKey,
-      exactLength: 32,
-    );
-    final expectedServerId = encodeBytes(
-      (await Sha256().hash(signingPublicKeyBytes)).bytes,
-    ).substring(0, 22);
-    if (serverId != expectedServerId) {
-      throw const ClientMessageException(ClientMessage('identityMismatch'));
-    }
     final uri = Uri(scheme: 'ws', host: address, port: port, path: '/control');
-    final socket = await _socketConnector(
+    final webSocket = await _socketConnector(
       uri,
     ).timeout(const Duration(seconds: 6));
+    webSocket.pingInterval = const Duration(seconds: 20);
+    await _finishConnection(
+      socket: WebSocketControlChannel(webSocket),
+      addresses: addresses,
+      serverId: serverId,
+      port: port,
+      signingPublicKey: signingPublicKey,
+      pairingToken: pairingToken,
+      profile: profile,
+      requestApproval: requestApproval,
+      deviceIdentity: deviceIdentity,
+      serverName: serverName,
+      generation: generation,
+      remoteEndpoint: remoteEndpoint,
+    );
+  }
+
+  Future<void> _finishConnection({
+    required ControlChannel socket,
+    required List<String> addresses,
+    required String serverId,
+    required int port,
+    required String signingPublicKey,
+    required String pairingToken,
+    required Map<String, dynamic>? profile,
+    required bool requestApproval,
+    required ClientDeviceIdentity deviceIdentity,
+    required String serverName,
+    required int generation,
+    required String? remoteEndpoint,
+  }) async {
     final iterator = StreamIterator<Object?>(socket);
     try {
+      final signingPublicKeyBytes = decodeBytes(
+        signingPublicKey,
+        exactLength: 32,
+      );
+      final expectedServerId = encodeBytes(
+        (await Sha256().hash(signingPublicKeyBytes)).bytes,
+      ).substring(0, 22);
+      if (serverId != expectedServerId) {
+        throw const ClientMessageException(ClientMessage('identityMismatch'));
+      }
       if (generation != _connectionGeneration || _disposed) {
         throw const _ConnectionCancelled();
       }
       _pendingSocket = socket;
-      socket.pingInterval = const Duration(seconds: 20);
       final clientEphemeralKey = await _keyExchange.newKeyPair();
       final clientPublicBytes = publicKeyBytes(
         await clientEphemeralKey.extractPublicKey(),
@@ -689,6 +822,7 @@ class RemoteClientService extends ChangeNotifier {
         'signingPublicKey': signingPublicKey,
         'clientId': authResult['clientId'],
         'clientToken': authResult['clientToken'],
+        'remoteEndpoint': ?remoteEndpoint,
       });
       if (generation != _connectionGeneration || _disposed) {
         throw const _ConnectionCancelled();
@@ -719,7 +853,7 @@ class RemoteClientService extends ChangeNotifier {
       );
     }
     final operation = _sendQueue.then((_) async {
-      if (_socket != socket || socket.readyState != WebSocket.open) return;
+      if (_socket != socket || !socket.isOpen) return;
       socket.add(jsonEncode(await session.encrypt(command)));
     });
     _sendQueue = operation.catchError((Object error, StackTrace stackTrace) {
@@ -759,7 +893,7 @@ class RemoteClientService extends ChangeNotifier {
   }
 
   Future<void> _listenForServerMessages(
-    WebSocket socket,
+    ControlChannel socket,
     StreamIterator<Object?> iterator,
     SecureSession session,
   ) async {

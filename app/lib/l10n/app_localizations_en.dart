@@ -90,6 +90,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get available => 'Available';
 
   @override
+  String get connectionLocal => 'Local';
+
+  @override
+  String get connectionPersistent => 'Persistent';
+
+  @override
   String get openControls => 'Open controls';
 
   @override
@@ -109,7 +115,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startServerConnectWifi =>
-      'Start the server on your PC and connect both devices to the same Wi-Fi network.';
+      'Start the server on your PC, then search locally or scan its QR code.';
 
   @override
   String get connect => 'Connect';

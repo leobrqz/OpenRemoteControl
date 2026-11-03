@@ -101,7 +101,7 @@ Extract `OpenRemoteControl-Windows-x64.zip` into a user-writable directory and r
 Keep this directory in place so updates retain the executable path and its existing Windows Firewall authorization.
 The server starts automatically and stays in the Windows notification area. Double-click the tray icon to open the dashboard in your browser; right-click it to open the dashboard or exit.
 
-In the dashboard's Devices page, scan the QR with the Android app or approve its pairing request. The QR expires after five minutes. Without a relay or public route, both devices must be on the same local network. Discovery uses UDP 47653 and control uses TCP 47652.
+In the dashboard's Devices page, scan the QR with the Android app or approve its pairing request. The QR expires after five minutes. QR pairing can also be used across networks through Iroh's free public infrastructure, subject to its limits and availability. Local discovery uses UDP 47653 and control uses TCP 47652.
 
 Updates are checked after startup. Approve downloading and restarting in About > Updates in the local dashboard. From 0.2.1, stop the old server and extract this first managed ZIP into a new user-writable directory; pairing and server identity are preserved.
 
