@@ -242,7 +242,7 @@ void main() {
         host,
         wrongIdentity,
         serverId,
-      ).then<void>((_) {}, onError: (Object _, StackTrace __) {});
+      ).then<void>((_) {}, onError: (Object _, StackTrace _) {});
       final client = RemoteClientService(
         deviceIdentityProvider: () async => ClientDeviceIdentity.fallback,
         persistentConnector: (_) async => mobile,
