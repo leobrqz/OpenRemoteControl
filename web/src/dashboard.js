@@ -3,9 +3,8 @@ const translations={
   'en-US':{
     'title':'Open Remote Control — Server','app.kicker':'WINDOWS SERVER','navigation':'Main navigation','language.label':'Language',
     'page.status':'Status','page.devices':'Devices','page.network':'Network','page.logs':'Logs','page.updates':'Updates','page.about':'About',
-    'page.statusSubtitle':'Your Windows server at a glance.','page.devicesSubtitle':'Pair phones and manage who can control this PC.','page.networkSubtitle':'Local addresses and connection details for this PC.','page.logsSubtitle':'Recent server diagnostics for troubleshooting.','page.updatesSubtitle':'See what is new and choose when to install it.','page.aboutSubtitle':'Project information, credits, and local diagnostics.',
+    'page.statusSubtitle':'Your Windows server at a glance.','page.devicesSubtitle':'Pair phones and manage who can control this PC.','page.networkSubtitle':'Local addresses and connection details for this PC.','page.logsSubtitle':'Recent log entries and where the files are stored.','page.updatesSubtitle':'See what is new and choose when to install it.','page.aboutSubtitle':'Project links, license, and development credits.',
     'nav.workspace':'WORKSPACE','nav.preferences':'PREFERENCES',
-    'copy':'Copy diagnostics','copy.done':'Copied',
     'section.server':'Server status','section.deviceSummary':'Devices','section.pair':'Pair a phone','section.requests':'Connection requests',
     'section.clients':'Authorized phones','section.connections':'Connections','section.local':'Local connection','section.logs':'Server activity',
     'section.about':'About','section.project':'Project','section.development':'Development','section.updates':'Updates',
@@ -26,12 +25,12 @@ const translations={
     'network.noIpv4':'No local IPv4 address','network.dashboard':'Dashboard on this PC',
     'network.instruction':'To connect on the same Wi-Fi network, open the Android app and tap Request connection.',
     'network.help':'Scan the QR code in Devices to save a persistent connection that can also work from another network.',
-    'logs.loading':'Loading diagnostics…','logs.error':'Could not load diagnostics. Check that the server is running, then try again.',
+    'logs.loading':'Loading diagnostics…','logs.error':'Could not load diagnostics. Check that the server is running, then try again.','logs.folder':'Log folder',
     'about.application':'Application','about.server':'Server','about.license':'License','about.log':'Log file',
     'about.website':'Official website','about.personalWebsite':'Personal website','about.personalGithub':'Personal GitHub','about.author':'Leonardo Briquezi aka devpatok',
-    'about.summary':'A simple way to control your Windows PC from your phone.','about.projectDescription':'Source code, releases, and project information.','about.maintainer':'Maintainer','about.maintainerRole':'Project developer','about.diagnostics':'Local diagnostics','about.logDescription':'Diagnostic file saved on this computer.',
+    'about.summary':'A simple way to control your Windows PC from your phone.','about.projectDescription':'Source code and project releases.','about.maintainerRole':'Project developer',
     'links.github':'GitHub',
-    'updates.loading':'Loading updates…','updates.ready':'Ready to check.','updates.disabled':'Updates are provided through the managed portable package. Download the current version from GitHub.',
+    'updates.loading':'Loading updates…','updates.ready':'Update status','updates.disabledTitle':'Updates are unavailable.','updates.disabled':'Download the current version from GitHub to update this installation.',
     'updates.checking':'Checking for updates…','updates.current':'You have the latest version.','updates.available':'Update available.',
     'updates.deferred':'Update postponed until you check again or restart the Windows app.','updates.downloading':'Downloading and validating the update…',
     'updates.applying':'Applying the update. The server will restart.','updates.failed':'The update could not be completed.',
@@ -42,7 +41,7 @@ const translations={
     'updates.heroAvailable':'A new version is ready. Review the notes and install when you are ready.','updates.heroCurrent':'This server is up to date.','updates.heroChecking':'Checking the latest release…','updates.heroIdle':'Check for a newer version of Open Remote Control.','updates.heroDisabled':'This installation cannot update from the dashboard.','updates.heroFailed':'The update could not be completed. Review the error and try again.','updates.notificationTitle':'Update available','updates.notificationBody':'Version {version} is ready to install.','updates.notificationAction':'View update','updates.currentTitle':'You are up to date','updates.currentBody':'This server is already using the latest version.','updates.dismiss':'Dismiss notification','updates.details':'Version details','updates.howItWorks':'You stay in control','updates.howItWorksBody':'The server checks for updates automatically. Installing one always requires your confirmation.','updates.readyLabel':'Ready','updates.availableLabel':'Available','updates.latestLabel':'Latest version','updates.installedLabel':'Installed version',
     'error.action':'The action could not be completed. Try again.','error.updateAction':'The update action could not be completed. Try again.',
     'error.status':'The server reported a problem. Check the server diagnostics.','error.update':'The update could not be completed. Check again or try later.',
-    'error.connection':'Could not reach the server. Check that it is running and try again.','error.copy':'Could not copy diagnostics. Check browser clipboard access.',
+    'error.connection':'Could not reach the server. Check that it is running and try again.',
     'error.logs':'Could not load diagnostics. Check that the server is running, then try again.',
     'error.code.invalid_origin':'This dashboard request was rejected. Open the dashboard from this PC.',
     'error.code.invalid_action':'That action is not available. Refresh the dashboard and try again.',
@@ -79,9 +78,8 @@ const translations={
   'pt-BR':{
     'title':'Open Remote Control — Servidor','app.kicker':'SERVIDOR WINDOWS','navigation':'Navegação principal','language.label':'Idioma',
     'page.status':'Status','page.devices':'Dispositivos','page.network':'Rede','page.logs':'Logs','page.updates':'Atualizações','page.about':'Sobre',
-    'page.statusSubtitle':'Uma visão geral do servidor Windows.','page.devicesSubtitle':'Pareie celulares e gerencie quem pode controlar este PC.','page.networkSubtitle':'Endereços locais e detalhes de conexão deste computador.','page.logsSubtitle':'Diagnósticos recentes do servidor para solucionar problemas.','page.updatesSubtitle':'Confira as novidades e escolha quando instalar.','page.aboutSubtitle':'Informações do projeto, créditos e diagnóstico local.',
+    'page.statusSubtitle':'Uma visão geral do servidor Windows.','page.devicesSubtitle':'Pareie celulares e gerencie quem pode controlar este PC.','page.networkSubtitle':'Endereços locais e detalhes de conexão deste computador.','page.logsSubtitle':'Entradas recentes e a pasta onde os arquivos são salvos.','page.updatesSubtitle':'Confira as novidades e escolha quando instalar.','page.aboutSubtitle':'Links do projeto, licença e créditos de desenvolvimento.',
     'nav.workspace':'ESPAÇO DE TRABALHO','nav.preferences':'PREFERÊNCIAS',
-    'copy':'Copiar diagnóstico','copy.done':'Copiado',
     'section.server':'Estado do servidor','section.deviceSummary':'Dispositivos','section.pair':'Parear celular','section.requests':'Pedidos de conexão',
     'section.clients':'Celulares autorizados','section.connections':'Conexões','section.local':'Conexão local','section.logs':'Atividade do servidor',
     'section.about':'Sobre','section.project':'Projeto','section.development':'Desenvolvimento','section.updates':'Atualizações',
@@ -102,12 +100,12 @@ const translations={
     'network.noIpv4':'Nenhum endereço IPv4 local','network.dashboard':'Painel neste computador',
     'network.instruction':'Para conectar na mesma rede Wi-Fi, abra o app Android e toque em Solicitar conexão.',
     'network.help':'Escaneie o QR code em Dispositivos para salvar uma conexão persistente, que também pode funcionar em outra rede.',
-    'logs.loading':'Carregando diagnóstico…','logs.error':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.',
+    'logs.loading':'Carregando diagnóstico…','logs.error':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.','logs.folder':'Pasta de logs',
     'about.application':'Aplicativo','about.server':'Servidor','about.license':'Licença','about.log':'Arquivo de log',
     'about.website':'Site oficial','about.personalWebsite':'Site pessoal','about.personalGithub':'GitHub pessoal','about.author':'Leonardo Briquezi aka devpatok',
-    'about.summary':'Uma forma simples de controlar o PC Windows pelo celular.','about.projectDescription':'Código-fonte, versões e informações do projeto.','about.maintainer':'Responsável pelo projeto','about.maintainerRole':'Desenvolvedor do projeto','about.diagnostics':'Diagnóstico local','about.logDescription':'Arquivo de diagnóstico salvo neste computador.',
+    'about.summary':'Uma forma simples de controlar o PC Windows pelo celular.','about.projectDescription':'Código-fonte e versões do projeto.','about.maintainerRole':'Desenvolvedor do projeto',
     'links.github':'GitHub',
-    'updates.loading':'Carregando atualizações…','updates.ready':'Pronto para verificar.','updates.disabled':'As atualizações são fornecidas pelo pacote portátil gerenciado. Baixe a versão atual pelo GitHub.',
+    'updates.loading':'Carregando atualizações…','updates.ready':'Estado das atualizações','updates.disabledTitle':'Atualizações indisponíveis.','updates.disabled':'Baixe a versão atual pelo GitHub para atualizar esta instalação.',
     'updates.checking':'Verificando atualizações…','updates.current':'Você está na versão mais recente.','updates.available':'Atualização disponível.',
     'updates.deferred':'Atualização adiada até verificar novamente ou reiniciar o aplicativo do Windows.','updates.downloading':'Baixando e validando a atualização…',
     'updates.applying':'Aplicando a atualização. O servidor será reiniciado.','updates.failed':'Não foi possível concluir a atualização.',
@@ -118,7 +116,7 @@ const translations={
     'updates.heroAvailable':'Uma nova versão está pronta. Confira as novidades e instale quando quiser.','updates.heroCurrent':'Este servidor está atualizado.','updates.heroChecking':'Verificando a versão mais recente…','updates.heroIdle':'Verifique se há uma nova versão do Open Remote Control.','updates.heroDisabled':'Esta instalação não pode ser atualizada pelo painel.','updates.heroFailed':'Não foi possível concluir a atualização. Confira o erro e tente novamente.','updates.notificationTitle':'Atualização disponível','updates.notificationBody':'A versão {version} está pronta para instalar.','updates.notificationAction':'Ver atualização','updates.currentTitle':'Você está atualizado','updates.currentBody':'Este servidor já está na versão mais recente.','updates.dismiss':'Dispensar notificação','updates.details':'Detalhes da versão','updates.howItWorks':'Você decide','updates.howItWorksBody':'O servidor verifica atualizações automaticamente. A instalação sempre depende da sua confirmação.','updates.readyLabel':'Pronta','updates.availableLabel':'Disponível','updates.latestLabel':'Versão mais recente','updates.installedLabel':'Versão instalada',
     'error.action':'Não foi possível concluir a ação. Tente novamente.','error.updateAction':'Não foi possível concluir a ação de atualização. Tente novamente.',
     'error.status':'O servidor informou um problema. Confira os diagnósticos do servidor.','error.update':'Não foi possível concluir a atualização. Verifique novamente ou tente mais tarde.',
-    'error.connection':'Não foi possível acessar o servidor. Confira se ele está ativo e tente novamente.','error.copy':'Não foi possível copiar os diagnósticos. Confira o acesso à área de transferência do navegador.',
+    'error.connection':'Não foi possível acessar o servidor. Confira se ele está ativo e tente novamente.',
     'error.logs':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.',
     'error.code.invalid_origin':'A solicitação ao painel foi recusada. Abra o painel neste computador.',
     'error.code.invalid_action':'Essa ação não está disponível. Atualize o painel e tente novamente.',
@@ -179,6 +177,8 @@ let reconnectTimedOut=false;
 let reconnectRunning=false;
 let logsOutput=null;
 let logsHeading=null;
+let logsPathLabel=null;
+let logsPathValue=null;
 let logsLoadState='loading';
 let logsFetchPending=false;
 let logsGeneration=0;
@@ -434,9 +434,13 @@ function renderLogs({refreshDiagnostics=true}={}){
     root.replaceChildren();
     const box=panel();
     logsLoadState='loading';
+    const location=node('div','log-location');
+    logsPathLabel=node('span','log-location-label',t('logs.folder'));
+    logsPathValue=node('code','log-location-value',logDirectory(latestState?.logPath));
+    location.append(logsPathLabel,logsPathValue);
     logsOutput=node('pre','log-output',t('logs.loading'));
     logsOutput.setAttribute('aria-label',t('section.logs'));
-    box.append(logsOutput);
+    box.append(location,logsOutput);
     const wrapper=section(t('section.logs'),box);
     logsHeading=wrapper.children[0];
     root.append(wrapper);
@@ -446,6 +450,8 @@ function renderLogs({refreshDiagnostics=true}={}){
     if(logsLoadState==='loading')logsOutput.textContent=t('logs.loading');
     if(logsLoadState==='failed')logsOutput.textContent=t('logs.error');
   }
+  if(logsPathLabel)logsPathLabel.textContent=t('logs.folder');
+  if(logsPathValue)logsPathValue.textContent=logDirectory(latestState?.logPath);
   if(!refreshDiagnostics||logsFetchPending)return;
   logsFetchPending=true;
   const output=logsOutput;const generation=logsGeneration;
@@ -475,13 +481,18 @@ function renderLogs({refreshDiagnostics=true}={}){
     }finally{logsFetchPending=false;}
   })();
 }
-function renderAbout(data){
+function logDirectory(path){
+  if(typeof path!=='string'||!path)return '—';
+  const separator=Math.max(path.lastIndexOf('\\'),path.lastIndexOf('/'));
+  return separator>0?path.slice(0,separator):path;
+}
+function renderAbout(){
   const root=byId('page');root.replaceChildren();
   const hero=node('div','about-hero');
   const mark=node('img','about-brand-mark');mark.src='/assets/mark.svg';mark.alt='';
   const identity=node('div');identity.append(node('h2','',t('about.application')),node('p','',t('about.summary')));
   const badges=node('div','about-badges');
-  badges.append(node('span','about-badge','Windows'),node('span','about-badge','v'+(latestUpdate?.currentVersion||'—')),node('span','about-badge','GPL-3.0-only'));
+  badges.append(node('span','about-badge','Windows'),node('span','about-badge','v'+(latestUpdate?.currentVersion||'—')));
   identity.append(badges);hero.append(mark,identity);root.append(hero);
 
   const grid=node('div','about-grid');
@@ -494,17 +505,15 @@ function renderAbout(data){
   project.append(projectLinks,node('div','about-divider'),node('div','project-license',t('about.license')+' · GPL-3.0-only'));grid.append(project);
 
   const details=panel();details.className+=' about-card';
-  details.append(node('h3','',t('about.maintainer')));
+  details.append(node('h3','',t('section.development')));
   const maintainer=node('div','maintainer');
-  maintainer.append(node('div','maintainer-avatar','LB'));
   const maintainerCopy=node('div');maintainerCopy.append(node('strong','',t('about.author')),node('span','',t('about.maintainerRole')));
   maintainer.append(maintainerCopy);details.append(maintainer);
-  const authorLinks=node('div','project-links');
+  const authorLinks=node('div','project-links author-links');
   for(const [label,href] of [[t('about.personalWebsite'),'https://leonardobriquezi.me'],[t('about.personalGithub'),'https://github.com/leobrqz']]){
     const link=node('a','project-link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';authorLinks.append(link);
   }
-  details.append(authorLinks,node('div','about-divider'),node('h3','',t('about.diagnostics')),node('p','',t('about.logDescription')));
-  details.append(node('div','diagnostic-path',data.logPath||'—'));
+  details.append(authorLinks);
   grid.append(details);root.append(grid);
 }
 function updateButton(label,action,kind){
@@ -536,26 +545,22 @@ function renderUpdates(force=false){
   lastRenderedUpdateSignature=signature;
   root.replaceChildren();
   if(!data){root.append(panel());return;}
-  const titles={idle:'updates.ready',disabled:'updates.disabled',checking:'updates.checking',upToDate:'updates.current',available:'updates.available',deferred:'updates.deferred',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.failed'};
-  const descriptions={idle:'updates.heroIdle',disabled:'updates.heroDisabled',checking:'updates.heroChecking',upToDate:'updates.heroCurrent',available:'updates.heroAvailable',deferred:'updates.heroAvailable',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.heroFailed'};
+  const titles={idle:'updates.ready',disabled:'updates.disabledTitle',checking:'updates.checking',upToDate:'updates.current',available:'updates.available',deferred:'updates.deferred',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.failed'};
+  const descriptions={disabled:'updates.disabled',available:'updates.heroAvailable'};
   const state=data.state||'idle';
   const hero=node('div','update-hero');
-  const heroCopy=node('div','update-hero-copy');
-  const icon=node('div','update-icon',state==='upToDate'?'✓':state==='failed'?'!':'↻');icon.setAttribute('aria-hidden','true');
-  const message=node('div');
-  message.append(node('h2','',t(titles[state]||'updates.ready')),node('p','',t(descriptions[state]||'updates.heroIdle')));
-  if(data.availableVersion&&['available','deferred','downloading','applying'].includes(state)){
-    message.append(node('div','update-state',t('updates.availableVersion')+': '+data.availableVersion));
-  }
-  heroCopy.append(icon,message);
-  hero.append(heroCopy,updateButton(t(state==='failed'?'updates.retry':'updates.check'),'update_check'));
-  root.append(hero);
+  const message=node('div','update-hero-copy');
+  message.append(node('h2','',t(titles[state]||'updates.ready')));
+  if(descriptions[state])message.append(node('p','',t(descriptions[state])));
+  hero.append(message);
+  if(state!=='disabled')hero.append(updateButton(t(state==='failed'?'updates.retry':'updates.check'),'update_check'));
 
-  const layout=node('div','update-layout');
-  const versionCard=panel();versionCard.className+=' update-card';
-  versionCard.append(node('h3','',t('updates.details')));
-  versionCard.append(row(t('updates.installed'),data.currentVersion||'—'));
-  if(data.availableVersion)versionCard.append(row(t('updates.availableVersion'),data.availableVersion));
+  const versionCard=panel();versionCard.className+=' update-panel';
+  versionCard.append(hero);
+  const versions=node('div','update-versions');
+  versions.append(row(t('updates.installed'),data.currentVersion||'—'));
+  if(data.availableVersion)versions.append(row(t('updates.availableVersion'),data.availableVersion));
+  versionCard.append(versions);
   if(state==='downloading'){
     const progress=node('progress','update-progress');progress.max=100;progress.value=data.progressPercent??0;
     progress.setAttribute('aria-label',t('updates.download'));versionCard.append(progress,node('div','small',localeNumber(progress.value)+'%'));
@@ -570,25 +575,17 @@ function renderUpdates(force=false){
     }catch{}
   }
   if(data.error){
-    const failure=node('div','update-current error');failure.append(node('span','indicator bad'),node('span','',errorMessage(data.error.code,'error.update')));versionCard.append(failure);
+    versionCard.append(node('p','update-error',errorMessage(data.error.code,'error.update')));
   }
   const actions=node('div','update-actions');
   if(state==='available')actions.append(updateButton(t('updates.update'),'update_install','primary'),updateButton(t('updates.defer'),'update_defer'));
   if(reconnectTimedOut){
-    versionCard.append(node('div','update-current error',t('updates.restartTimeout')));
+    versionCard.append(node('p','update-error',t('updates.restartTimeout')));
     const retry=node('button','btn btn-sm btn-outline btn-neutral',t('updates.reconnect'));
     retry.onclick=()=>{reconnectTimedOut=false;void reconnect();};actions.append(retry);
   }
   if(actions.children.length)versionCard.append(actions);
-  layout.append(versionCard);
-
-  const how=panel();how.className+=' update-card';
-  how.append(node('h3','',t('updates.howItWorks')));
-  const current=node('div','update-current');
-  current.append(node('span','indicator '+(state==='failed'?'bad':'good')),node('span','',t(descriptions[state]||'updates.heroIdle')));
-  how.append(current,node('div','about-divider'),node('p','small',t('updates.howItWorksBody')));
-  if(state==='disabled')how.append(node('p','small',t('updates.disabled')));
-  layout.append(how);root.append(layout);
+  root.append(versionCard);
 }
 async function reconnect(){
   if(reconnectRunning||!reconnectTarget)return;
@@ -616,13 +613,13 @@ function render(data,{languageChange=false,preserveNotice=false}={}){
   const headerStatus=byId('headerStatusLabel');if(headerStatus)headerStatus.textContent=t(data.running?'status.started':'status.stopped');
   const headerDot=byId('headerStatusDot');if(headerDot){headerDot.classList.toggle('good',Boolean(data.running));headerDot.classList.toggle('bad',!data.running);}
   syncUpdateBadge();
-  if(currentPage!=='logs'&&logsOutput){logsGeneration++;logsOutput=null;logsHeading=null;logsLoadState='loading';}
+  if(currentPage!=='logs'&&logsOutput){logsGeneration++;logsOutput=null;logsHeading=null;logsPathLabel=null;logsPathValue=null;logsLoadState='loading';}
   if(currentPage==='status')renderStatus(data);
   if(currentPage==='devices')renderDevices(data);
   if(currentPage==='network')renderNetwork(data);
   if(currentPage==='logs')renderLogs({refreshDiagnostics:!languageChange});
   if(currentPage==='updates')renderUpdates(pageChanged||languageChange);
-  if(currentPage==='about')renderAbout(data);
+  if(currentPage==='about')renderAbout();
   lastRenderedPage=currentPage;
   if(data.error)showError(data.errorCode,'error.status');
   else if((languageChange||preserveNotice)&&activeNotice)showError(activeNotice.code,activeNotice.fallback);
@@ -651,8 +648,6 @@ function updateChrome(){
   const workspace=byId('navWorkspace');if(workspace)workspace.textContent=t('nav.workspace');
   const preferences=byId('navPreferences');if(preferences)preferences.textContent=t('nav.preferences');
   document.querySelectorAll('[data-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.language===language)));
-  byId('copyLogs').textContent=t('copy');
-  byId('copyLogs').setAttribute('aria-label',t('copy'));
   document.querySelectorAll('[data-page]').forEach(item=>{
     const label=item.querySelector?.('.nav-label');
     if(label)label.textContent=t('page.'+item.dataset.page);else item.textContent=t('page.'+item.dataset.page);
@@ -687,14 +682,4 @@ window.addEventListener('hashchange',()=>{
   selectPage();
 });
 selectPage();
-byId('copyLogs').onclick=async event=>{
-  const button=event.currentTarget;
-  try{
-    const response=await fetch('/api/diagnostics',{cache:'no-store'});
-    if(!response.ok)throw new Error('diagnostics unavailable');
-    const text=await response.text();await navigator.clipboard.writeText(text);
-    button.textContent=t('copy.done');button.setAttribute('aria-label',t('copy.done'));
-    setTimeout(()=>{button.textContent=t('copy');button.setAttribute('aria-label',t('copy'));},1600);
-  }catch{showError(null,'error.copy');}
-};
 refresh();setInterval(refresh,1000);
