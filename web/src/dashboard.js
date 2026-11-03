@@ -1,8 +1,10 @@
 const byId=id=>document.getElementById(id);
 const translations={
   'en-US':{
-    'title':'Open Remote Control — Server','navigation':'Main navigation','language.label':'Language',
-    'page.status':'Status','page.devices':'Devices','page.network':'Network','page.logs':'Logs','page.about':'About',
+    'title':'Open Remote Control — Server','app.kicker':'WINDOWS SERVER','navigation':'Main navigation','language.label':'Language',
+    'page.status':'Status','page.devices':'Devices','page.network':'Network','page.logs':'Logs','page.updates':'Updates','page.about':'About',
+    'page.statusSubtitle':'Your Windows server at a glance.','page.devicesSubtitle':'Pair phones and manage who can control this PC.','page.networkSubtitle':'Local addresses and connection details for this PC.','page.logsSubtitle':'Recent server diagnostics for troubleshooting.','page.updatesSubtitle':'See what is new and choose when to install it.','page.aboutSubtitle':'Project information, credits, and local diagnostics.',
+    'nav.workspace':'WORKSPACE','nav.preferences':'PREFERENCES',
     'copy':'Copy diagnostics','copy.done':'Copied',
     'section.server':'Server status','section.deviceSummary':'Devices','section.pair':'Pair a phone','section.requests':'Connection requests',
     'section.clients':'Authorized phones','section.connections':'Connections','section.local':'Local connection','section.logs':'Server activity',
@@ -11,21 +13,23 @@ const translations={
     'pair.remoteReady':'Remote access uses Iroh public relays when needed.','pair.remoteUnavailable':'Remote access unavailable; this code works on the local network.',
     'pair.start':'Start the server to create a QR code.','pair.valid':'Valid until {time}','pair.new':'Generate a new QR code',
     'pair.expired':'The QR code has expired. Generate another to pair.','pair.generate':'Generate QR code','pair.alt':'QR code to pair the Android app',
-    'status.started':'Server running','status.stopped':'Server stopped','status.wifi':'Wi-Fi connection','status.listening':'Listening on all interfaces',
+    'status.started':'Server running','status.stopped':'Server stopped','status.connecting':'Connecting…','status.wifi':'Wi-Fi connection','status.listening':'Listening on all interfaces',
     'status.off':'Stopped','status.tcp':'TCP control','status.port':'Port {port}','status.discovery':'Automatic discovery','status.udp':'Listening via UDP',
     'status.local':'Local network','status.noAddress':'No local address found','status.lastPhone':'Last phone connection attempt',
     'status.noConnection':'No connection received','status.start':'Start server','status.stop':'Stop server',
     'status.pending':'Pending requests','status.authorized':'Authorized phones',
+    'status.device':'YOUR COMPUTER','status.runningDescription':'The server is ready to accept connections from your phone.','status.stoppedDescription':'Start the server to connect your phone and control this PC.','status.connectPhone':'Connect a phone','status.overview':'At a glance','status.deviceCount':'Authorized phones','status.deviceCountCaption':'Can connect to this computer','status.pendingCaption':'Waiting for your approval','status.addressCaption':'Local network address','status.connections':'Connection details','status.connectionDescription':'How your phone can reach this computer on the local network.','status.lastConnection':'Last phone connection','status.lastConnectionDescription':'Most recent connection attempt received by the server.','status.lastConnectionAt':'Received {time}','status.noConnectionYet':'No connection attempt yet','status.pendingNone':'No requests need your attention',
     'devices.noneWaiting':'No requests waiting.','devices.defaultPhone':'Phone','devices.reject':'Reject','devices.approve':'Approve',
     'devices.noneAuthorized':'No authorized phones.','devices.connected':'Connected','devices.authorized':'Authorized','devices.revoke':'Revoke access',
     'devices.android':'Android {version}',
-    'network.wifiControl':'Wi-Fi control','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.addresses':'This PC addresses',
+    'network.wifiControl':'Wi-Fi control','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.discovery':'Automatic discovery','network.addresses':'This PC addresses',
     'network.noIpv4':'No local IPv4 address','network.dashboard':'Dashboard on this PC',
     'network.instruction':'To connect on the same Wi-Fi network, open the Android app and tap Request connection.',
     'network.help':'Scan the QR code in Devices to save a persistent connection that can also work from another network.',
     'logs.loading':'Loading diagnostics…','logs.error':'Could not load diagnostics. Check that the server is running, then try again.',
     'about.application':'Application','about.server':'Server','about.license':'License','about.log':'Log file',
     'about.website':'Official website','about.personalWebsite':'Personal website','about.personalGithub':'Personal GitHub','about.author':'Leonardo Briquezi aka devpatok',
+    'about.summary':'A simple way to control your Windows PC from your phone.','about.projectDescription':'Source code, releases, and project information.','about.maintainer':'Maintainer','about.maintainerRole':'Project developer','about.diagnostics':'Local diagnostics','about.logDescription':'Diagnostic file saved on this computer.',
     'links.github':'GitHub',
     'updates.loading':'Loading updates…','updates.ready':'Ready to check.','updates.disabled':'Updates are provided through the managed portable package. Download the current version from GitHub.',
     'updates.checking':'Checking for updates…','updates.current':'You have the latest version.','updates.available':'Update available.',
@@ -35,6 +39,7 @@ const translations={
     'updates.download':'Update download','updates.retry':'Try again','updates.check':'Check for updates','updates.update':'Update','updates.defer':'Not now',
     'updates.error':'The update could not be completed. Check again or try later.',
     'updates.restartTimeout':'The server has not responded yet. Try reconnecting to the local dashboard.','updates.reconnect':'Reconnect to dashboard',
+    'updates.heroAvailable':'A new version is ready. Review the notes and install when you are ready.','updates.heroCurrent':'This server is up to date.','updates.heroChecking':'Checking the latest release…','updates.heroIdle':'Check for a newer version of Open Remote Control.','updates.heroDisabled':'This installation cannot update from the dashboard.','updates.heroFailed':'The update could not be completed. Review the error and try again.','updates.notificationTitle':'Update available','updates.notificationBody':'Version {version} is ready to install.','updates.notificationAction':'View update','updates.currentTitle':'You are up to date','updates.currentBody':'This server is already using the latest version.','updates.dismiss':'Dismiss notification','updates.details':'Version details','updates.howItWorks':'You stay in control','updates.howItWorksBody':'The server checks for updates automatically. Installing one always requires your confirmation.','updates.readyLabel':'Ready','updates.availableLabel':'Available','updates.latestLabel':'Latest version','updates.installedLabel':'Installed version',
     'error.action':'The action could not be completed. Try again.','error.updateAction':'The update action could not be completed. Try again.',
     'error.status':'The server reported a problem. Check the server diagnostics.','error.update':'The update could not be completed. Check again or try later.',
     'error.connection':'Could not reach the server. Check that it is running and try again.','error.copy':'Could not copy diagnostics. Check browser clipboard access.',
@@ -72,8 +77,10 @@ const translations={
     'error.code.unavailable':'The requested information is unavailable. Try again later.'
   },
   'pt-BR':{
-    'title':'Open Remote Control — Servidor','navigation':'Navegação principal','language.label':'Idioma',
-    'page.status':'Status','page.devices':'Dispositivos','page.network':'Rede','page.logs':'Logs','page.about':'Sobre',
+    'title':'Open Remote Control — Servidor','app.kicker':'SERVIDOR WINDOWS','navigation':'Navegação principal','language.label':'Idioma',
+    'page.status':'Status','page.devices':'Dispositivos','page.network':'Rede','page.logs':'Logs','page.updates':'Atualizações','page.about':'Sobre',
+    'page.statusSubtitle':'Uma visão geral do servidor Windows.','page.devicesSubtitle':'Pareie celulares e gerencie quem pode controlar este PC.','page.networkSubtitle':'Endereços locais e detalhes de conexão deste computador.','page.logsSubtitle':'Diagnósticos recentes do servidor para solucionar problemas.','page.updatesSubtitle':'Confira as novidades e escolha quando instalar.','page.aboutSubtitle':'Informações do projeto, créditos e diagnóstico local.',
+    'nav.workspace':'ESPAÇO DE TRABALHO','nav.preferences':'PREFERÊNCIAS',
     'copy':'Copiar diagnóstico','copy.done':'Copiado',
     'section.server':'Estado do servidor','section.deviceSummary':'Dispositivos','section.pair':'Parear celular','section.requests':'Pedidos de conexão',
     'section.clients':'Celulares autorizados','section.connections':'Conexões','section.local':'Conexão local','section.logs':'Atividade do servidor',
@@ -82,21 +89,23 @@ const translations={
     'pair.remoteReady':'O acesso remoto usa servidores públicos do Iroh quando necessário.','pair.remoteUnavailable':'Acesso remoto indisponível; o código funciona na rede local.',
     'pair.start':'Inicie o servidor para gerar um QR code.','pair.valid':'Válido até {time}','pair.new':'Gerar novo QR code',
     'pair.expired':'O QR code expirou. Gere outro para parear.','pair.generate':'Gerar QR code','pair.alt':'QR code para parear o app Android',
-    'status.started':'Servidor iniciado','status.stopped':'Servidor parado','status.wifi':'Conexão Wi-Fi','status.listening':'Ouvindo em todas as interfaces',
+    'status.started':'Servidor iniciado','status.stopped':'Servidor parado','status.connecting':'Conectando…','status.wifi':'Conexão Wi-Fi','status.listening':'Ouvindo em todas as interfaces',
     'status.off':'Parada','status.tcp':'Controle TCP','status.port':'Porta {port}','status.discovery':'Descoberta automática','status.udp':'Ouvindo via UDP',
     'status.local':'Rede local','status.noAddress':'Nenhum endereço local encontrado','status.lastPhone':'Última tentativa de conexão do celular',
     'status.noConnection':'Nenhuma conexão recebida','status.start':'Iniciar servidor','status.stop':'Parar servidor',
     'status.pending':'Pedidos pendentes','status.authorized':'Celulares autorizados',
+    'status.device':'SEU COMPUTADOR','status.runningDescription':'O servidor está pronto para receber conexões do celular.','status.stoppedDescription':'Inicie o servidor para conectar o celular e controlar este PC.','status.connectPhone':'Conectar celular','status.overview':'Visão geral','status.deviceCount':'Celulares autorizados','status.deviceCountCaption':'Podem se conectar a este computador','status.pendingCaption':'Aguardando sua aprovação','status.addressCaption':'Endereço da rede local','status.connections':'Detalhes da conexão','status.connectionDescription':'Como o celular pode acessar este computador pela rede local.','status.lastConnection':'Última conexão do celular','status.lastConnectionDescription':'Tentativa de conexão mais recente recebida pelo servidor.','status.lastConnectionAt':'Recebida em {time}','status.noConnectionYet':'Nenhuma tentativa de conexão ainda','status.pendingNone':'Nenhum pedido precisa da sua atenção',
     'devices.noneWaiting':'Nenhum pedido aguardando.','devices.defaultPhone':'Celular','devices.reject':'Recusar','devices.approve':'Aprovar',
     'devices.noneAuthorized':'Nenhum celular autorizado.','devices.connected':'Conectado','devices.authorized':'Autorizado','devices.revoke':'Revogar acesso',
     'devices.android':'Android {version}',
-    'network.wifiControl':'Controle Wi-Fi','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.addresses':'Endereços deste PC',
+    'network.wifiControl':'Controle Wi-Fi','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.discovery':'Descoberta automática','network.addresses':'Endereços deste PC',
     'network.noIpv4':'Nenhum endereço IPv4 local','network.dashboard':'Painel neste computador',
     'network.instruction':'Para conectar na mesma rede Wi-Fi, abra o app Android e toque em Solicitar conexão.',
     'network.help':'Escaneie o QR code em Dispositivos para salvar uma conexão persistente, que também pode funcionar em outra rede.',
     'logs.loading':'Carregando diagnóstico…','logs.error':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.',
     'about.application':'Aplicativo','about.server':'Servidor','about.license':'Licença','about.log':'Arquivo de log',
     'about.website':'Site oficial','about.personalWebsite':'Site pessoal','about.personalGithub':'GitHub pessoal','about.author':'Leonardo Briquezi aka devpatok',
+    'about.summary':'Uma forma simples de controlar o PC Windows pelo celular.','about.projectDescription':'Código-fonte, versões e informações do projeto.','about.maintainer':'Responsável pelo projeto','about.maintainerRole':'Desenvolvedor do projeto','about.diagnostics':'Diagnóstico local','about.logDescription':'Arquivo de diagnóstico salvo neste computador.',
     'links.github':'GitHub',
     'updates.loading':'Carregando atualizações…','updates.ready':'Pronto para verificar.','updates.disabled':'As atualizações são fornecidas pelo pacote portátil gerenciado. Baixe a versão atual pelo GitHub.',
     'updates.checking':'Verificando atualizações…','updates.current':'Você está na versão mais recente.','updates.available':'Atualização disponível.',
@@ -106,6 +115,7 @@ const translations={
     'updates.download':'Download da atualização','updates.retry':'Tentar novamente','updates.check':'Verificar atualizações','updates.update':'Atualizar','updates.defer':'Agora não',
     'updates.error':'Não foi possível concluir a atualização. Verifique novamente ou tente mais tarde.',
     'updates.restartTimeout':'O servidor ainda não respondeu. Tente reconectar ao painel local.','updates.reconnect':'Reconectar ao painel',
+    'updates.heroAvailable':'Uma nova versão está pronta. Confira as novidades e instale quando quiser.','updates.heroCurrent':'Este servidor está atualizado.','updates.heroChecking':'Verificando a versão mais recente…','updates.heroIdle':'Verifique se há uma nova versão do Open Remote Control.','updates.heroDisabled':'Esta instalação não pode ser atualizada pelo painel.','updates.heroFailed':'Não foi possível concluir a atualização. Confira o erro e tente novamente.','updates.notificationTitle':'Atualização disponível','updates.notificationBody':'A versão {version} está pronta para instalar.','updates.notificationAction':'Ver atualização','updates.currentTitle':'Você está atualizado','updates.currentBody':'Este servidor já está na versão mais recente.','updates.dismiss':'Dispensar notificação','updates.details':'Detalhes da versão','updates.howItWorks':'Você decide','updates.howItWorksBody':'O servidor verifica atualizações automaticamente. A instalação sempre depende da sua confirmação.','updates.readyLabel':'Pronta','updates.availableLabel':'Disponível','updates.latestLabel':'Versão mais recente','updates.installedLabel':'Versão instalada',
     'error.action':'Não foi possível concluir a ação. Tente novamente.','error.updateAction':'Não foi possível concluir a ação de atualização. Tente novamente.',
     'error.status':'O servidor informou um problema. Confira os diagnósticos do servidor.','error.update':'Não foi possível concluir a atualização. Verifique novamente ou tente mais tarde.',
     'error.connection':'Não foi possível acessar o servidor. Confira se ele está ativo e tente novamente.','error.copy':'Não foi possível copiar os diagnósticos. Confira o acesso à área de transferência do navegador.',
@@ -156,10 +166,13 @@ const t=(key,values={})=>{
   return text;
 };
 const localeNumber=(value,options={})=>new Intl.NumberFormat(language,options).format(value);
-let currentPage=['status','devices','network','logs','about'].includes(location.hash.slice(1))?location.hash.slice(1):'status';
+let currentPage=['status','devices','network','logs','updates','about'].includes(location.hash.slice(1))?location.hash.slice(1):'status';
 let latestState=null;
 let latestUpdate=null;
 let updateActionPending=false;
+let announcedUpdateVersion=null;
+let updateCheckFeedbackPending=false;
+let toastTimer=null;
 const pendingActions=new Set();
 let reconnectTarget=null;
 let reconnectTimedOut=false;
@@ -172,6 +185,9 @@ let logsGeneration=0;
 let activeNotice=null;
 let pairingQr=null;
 let pairingQrUrl=null;
+let lastRenderedPage=null;
+let lastRenderedUpdateSignature=null;
+const pageDescriptionKeys={status:'page.statusSubtitle',devices:'page.devicesSubtitle',network:'page.networkSubtitle',logs:'page.logsSubtitle',updates:'page.updatesSubtitle',about:'page.aboutSubtitle'};
 function node(tag,className,text){
   const item=document.createElement(tag);
   if(className)item.className=className;
@@ -201,6 +217,61 @@ function errorMessage(code,fallback){
   return key&&translations[language][key]?t(key):t(fallback);
 }
 function showError(code,fallback){showNotice(errorMessage(code,fallback),{code,fallback});}
+function showToast(title,message,{actionLabel,action,kind='success'}={}){
+  const root=byId('toastContainer');
+  if(!root)return;
+  if(toastTimer!==null)clearTimeout(toastTimer);
+  const card=node('div','toast-card'+(kind==='error'?' error':''));
+  card.setAttribute('role',kind==='error'?'alert':'status');
+  const mark=node('div','toast-mark',kind==='error'?'!':'✓');
+  mark.setAttribute('aria-hidden','true');
+  const copy=node('div','toast-copy');
+  copy.append(node('strong','',title),node('p','',message));
+  if(actionLabel&&action){
+    const button=node('button','toast-action',actionLabel);
+    button.type='button';button.onclick=()=>{dismissToast();action();};
+    copy.append(button);
+  }
+  const close=node('button','toast-close','×');
+  close.type='button';close.setAttribute('aria-label',t('updates.dismiss'));close.onclick=dismissToast;
+  card.append(mark,copy,close);root.replaceChildren(card);
+  toastTimer=setTimeout(dismissToast,10000);
+}
+function dismissToast(){
+  if(toastTimer!==null){clearTimeout(toastTimer);toastTimer=null;}
+  byId('toastContainer')?.replaceChildren();
+}
+function navigateTo(page){
+  currentPage=page;location.hash=page;selectPage();
+}
+function syncUpdateBadge(){
+  const badge=byId('updateBadge');
+  if(!badge)return;
+  const pending=['available','deferred'].includes(latestUpdate?.state);
+  badge.classList.toggle('hidden',!pending);
+  badge.textContent=pending?t('updates.availableLabel'):'';
+}
+function notifyUpdateState(data){
+  syncUpdateBadge();
+  if(data?.state==='available'&&data.availableVersion){
+    updateCheckFeedbackPending=false;
+    if(announcedUpdateVersion!==data.availableVersion){
+      announcedUpdateVersion=data.availableVersion;
+      showToast(t('updates.notificationTitle'),t('updates.notificationBody',{version:data.availableVersion}),{
+        actionLabel:t('updates.notificationAction'),action:()=>navigateTo('updates'),
+      });
+    }
+  }else if(updateCheckFeedbackPending&&data?.state==='upToDate'){
+    updateCheckFeedbackPending=false;
+    showToast(t('updates.currentTitle'),t('updates.currentBody'));
+  }else if(updateCheckFeedbackPending&&data?.state==='failed'){
+    updateCheckFeedbackPending=false;
+    showToast(t('updates.failed'),errorMessage(data.error?.code,'error.update'),{kind:'error',actionLabel:t('updates.notificationAction'),action:()=>navigateTo('updates')});
+  }else if(updateCheckFeedbackPending&&data?.state==='disabled'){
+    updateCheckFeedbackPending=false;
+    showToast(t('updates.heroDisabled'),t('updates.disabled'),{kind:'error'});
+  }
+}
 async function doAction(name,id,button){
   const key=JSON.stringify([name,id??null]);
   if(pendingActions.has(key))return;
@@ -255,30 +326,68 @@ function renderPairing(data){
   card.append(details);
   return card;
 }
+function statCard(label,value,caption,valueClass=''){
+  const card=node('div','stat-card');
+  card.append(node('div','stat-label',label),node('div','stat-value'+(valueClass?' '+valueClass:''),value),node('div','stat-caption',caption));
+  return card;
+}
+function connectionTime(value){
+  if(!value)return '';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return '';
+  return new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(date);
+}
+function connectPhoneButton(){
+  const button=node('button','btn btn-outline btn-neutral',t('status.connectPhone'));
+  button.type='button';button.onclick=()=>navigateTo('devices');
+  return button;
+}
 function renderStatus(data){
   const root=byId('page');root.replaceChildren();
-  const statusPanel=panel();
-  const statusLine=node('div','status-line');
-  statusLine.append(node('span','indicator '+(data.running?'good':'bad')));
-  statusLine.append(node('span','',t(data.running?'status.started':'status.stopped')));
-  statusPanel.append(statusLine);
+  const hero=node('div','server-hero'+(data.running?'':' stopped'));
+  const copy=node('div','server-hero-copy');
+  copy.append(node('div','eyebrow',t('status.device')));
+  copy.append(node('h2','',t(data.running?'status.started':'status.stopped')));
+  copy.append(node('p','',t(data.running?'status.runningDescription':'status.stoppedDescription')));
+  const actions=node('div','server-hero-actions');
+  actions.append(makeAction(t(data.running?'status.stop':'status.start'),data.running?'stop':'start',undefined,data.running?'danger':'primary'));
+  actions.append(connectPhoneButton());
+  hero.append(copy,actions);root.append(hero);
+
+  const requests=data.requests||[],clients=data.clients||[],addresses=data.addresses||[];
+  const address=addresses.join(' · ')||t('status.noAddress');
+  const stats=node('div','stat-grid');
+  stats.append(
+    statCard(t('status.deviceCount'),localeNumber(clients.length),t('status.deviceCountCaption')),
+    statCard(t('status.pending'),localeNumber(requests.length),requests.length?t('status.pendingCaption'):t('status.pendingNone')),
+    statCard(t('status.local'),address,t('status.addressCaption'),'address-value'),
+  );
+  root.append(section(t('status.overview'),stats));
+
+  const grid=node('div','overview-grid');
+  const connection=panel();connection.className+=' overview-card';
+  const heading=node('div','card-heading');
+  const headingCopy=node('div');headingCopy.append(node('h3','',t('status.connections')),node('p','',t('status.connectionDescription')));
+  const networkLink=node('a','text-link',t('page.network'));networkLink.href='#network';networkLink.onclick=event=>{event.preventDefault();navigateTo('network');};
+  heading.append(headingCopy,networkLink);connection.append(heading);
   const rows=node('div','rows');
   rows.append(row(t('status.wifi'),data.running?t('status.listening'):t('status.off'),data.running?'ok':'off'));
   rows.append(row(t('status.tcp'),data.running?t('status.port',{port:data.port||47652}):'—'));
   rows.append(row(t('status.discovery'),data.discoveryRunning?t('status.udp'):t('status.off'),data.discoveryRunning?'ok':'off'));
-  rows.append(row(t('status.local'),(data.addresses||[]).join('  ·  ')||t('status.noAddress')));
-  rows.append(row(t('status.lastPhone'),data.lastConnectionAddress||t('status.noConnection')));
-  statusPanel.append(rows);
-  const actions=node('div','actions');
-  actions.append(makeAction(t(data.running?'status.stop':'status.start'),data.running?'stop':'start'));
-  statusPanel.append(actions);
-  root.append(section(t('section.server'),statusPanel));
-  const totals=panel();
-  const summary=node('div','rows');
-  summary.append(row(t('status.pending'),localeNumber((data.requests||[]).length)));
-  summary.append(row(t('status.authorized'),localeNumber((data.clients||[]).length)));
-  totals.append(summary);
-  root.append(section(t('section.deviceSummary'),totals));
+  connection.append(rows);grid.append(connection);
+
+  const recent=panel();recent.className+=' overview-card';
+  const recentHeading=node('div','card-heading');
+  recentHeading.append(node('div','',t('status.lastConnection')));recent.append(recentHeading);
+  recent.append(node('p','small',t('status.lastConnectionDescription')));
+  if(data.lastConnectionAddress){
+    recent.append(node('div','connection-address',data.lastConnectionAddress));
+    const time=connectionTime(data.lastConnectionAt);
+    if(time)recent.append(node('div','connection-time',t('status.lastConnectionAt',{time})));
+  }else{
+    const empty=node('div','connection-empty');empty.append(node('strong','',t('status.noConnectionYet')),node('span','',t('status.noConnection')));recent.append(empty);
+  }
+  grid.append(recent);root.append(grid);
 }
 function renderDevices(data){
   const root=byId('page');root.replaceChildren();
@@ -316,8 +425,7 @@ function renderNetwork(data){
   rows.append(row(t('network.dashboard'),'http://127.0.0.1:'+(data.dashboardPort||47654)+'/'));
   connections.append(rows);root.append(section(t('section.connections'),connections));
   const help=panel();
-  help.append(node('div','',t('network.instruction')));
-  help.append(node('p','small',t('network.help')));
+  help.append(node('div','network-help',t('network.instruction')+' '+t('network.help')));
   root.append(section(t('section.local'),help));
 }
 function renderLogs({refreshDiagnostics=true}={}){
@@ -369,28 +477,35 @@ function renderLogs({refreshDiagnostics=true}={}){
 }
 function renderAbout(data){
   const root=byId('page');root.replaceChildren();
-  const details=panel();const rows=node('div','rows');
-  rows.append(row(t('about.application'),'Open Remote Control'));
-  rows.append(row(t('about.server'),'Windows'));
-  rows.append(row(t('about.license'),'GPL-3.0-only'));
-  rows.append(row(t('about.log'),data.logPath||'—'));
-  details.append(rows);root.append(section(t('section.about'),details));
-  const links=panel();
-  const projectLinks=node('div','flex flex-wrap gap-4');
+  const hero=node('div','about-hero');
+  const mark=node('img','about-brand-mark');mark.src='/assets/mark.svg';mark.alt='';
+  const identity=node('div');identity.append(node('h2','',t('about.application')),node('p','',t('about.summary')));
+  const badges=node('div','about-badges');
+  badges.append(node('span','about-badge','Windows'),node('span','about-badge','v'+(latestUpdate?.currentVersion||'—')),node('span','about-badge','GPL-3.0-only'));
+  identity.append(badges);hero.append(mark,identity);root.append(hero);
+
+  const grid=node('div','about-grid');
+  const project=panel();project.className+=' about-card';
+  project.append(node('h3','',t('section.project')),node('p','',t('about.projectDescription')));
+  const projectLinks=node('div','project-links');
   for(const [label,href] of [[t('links.github'),'https://github.com/leobrqz/OpenRemoteControl'],['SourceForge','https://sourceforge.net/projects/openremotecontrol/'],[t('about.website'),'https://openremotecontrol.sourceforge.io/']]){
-    const link=node('a','link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';projectLinks.append(link);
+    const link=node('a','project-link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';projectLinks.append(link);
   }
-  links.append(projectLinks);
-  root.append(section(t('section.project'),links));
-  const author=panel();
-  author.append(node('p','mb-3',t('about.author')));
-  const authorLinks=node('div','flex flex-wrap gap-4');
+  project.append(projectLinks,node('div','about-divider'),node('div','project-license',t('about.license')+' · GPL-3.0-only'));grid.append(project);
+
+  const details=panel();details.className+=' about-card';
+  details.append(node('h3','',t('about.maintainer')));
+  const maintainer=node('div','maintainer');
+  maintainer.append(node('div','maintainer-avatar','LB'));
+  const maintainerCopy=node('div');maintainerCopy.append(node('strong','',t('about.author')),node('span','',t('about.maintainerRole')));
+  maintainer.append(maintainerCopy);details.append(maintainer);
+  const authorLinks=node('div','project-links');
   for(const [label,href] of [[t('about.personalWebsite'),'https://leonardobriquezi.me'],[t('about.personalGithub'),'https://github.com/leobrqz']]){
-    const link=node('a','link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';authorLinks.append(link);
+    const link=node('a','project-link',label);link.href=href;link.target='_blank';link.rel='noopener noreferrer';authorLinks.append(link);
   }
-  author.append(authorLinks);
-  root.append(section(t('section.development'),author));
-  root.append(section(t('section.updates'),renderUpdates()));
+  details.append(authorLinks,node('div','about-divider'),node('h3','',t('about.diagnostics')),node('p','',t('about.logDescription')));
+  details.append(node('div','diagnostic-path',data.logPath||'—'));
+  grid.append(details);root.append(grid);
 }
 function updateButton(label,action,kind){
   const button=node('button','btn btn-sm '+(kind==='primary'?'btn-success':'btn-outline btn-neutral'),label);
@@ -398,7 +513,9 @@ function updateButton(label,action,kind){
   button.disabled=busy||latestUpdate?.state==='disabled'||!latestUpdate;
   button.onclick=async()=>{
     if(updateActionPending)return;
-    updateActionPending=true;renderAbout(latestState);
+    updateActionPending=true;
+    if(action==='update_check')updateCheckFeedbackPending=true;
+    if(currentPage==='updates')renderUpdates();
     const candidate=latestUpdate;
     try{
       const body={action};if(action!=='update_check')body.candidateId=candidate.candidateId;
@@ -406,37 +523,72 @@ function updateButton(label,action,kind){
       const result=await response.json();if(!response.ok)throw {errorCode:result.errorCode};
       if(action==='update_install'){reconnectTarget=candidate.availableVersion;reconnectTimedOut=false;}
       showNotice('');await refresh();
-    }catch(error){showError(error?.errorCode,'error.updateAction');}
-    finally{updateActionPending=false;if(currentPage==='about')renderAbout(latestState);}
+    }catch(error){updateCheckFeedbackPending=false;showError(error?.errorCode,'error.updateAction');}
+    finally{updateActionPending=false;if(currentPage==='updates')renderUpdates();}
   };
   return button;
 }
-function renderUpdates(){
-  const card=panel();const data=latestUpdate;
-  if(!data){card.append(node('p','',t('updates.loading')));return card;}
-  const labels={idle:'updates.ready',disabled:'updates.disabled',checking:'updates.checking',upToDate:'updates.current',available:'updates.available',deferred:'updates.deferred',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.failed'};
-  card.append(row(t('updates.installed'),data.currentVersion||'—'));
-  if(data.availableVersion)card.append(row(t('updates.availableVersion'),data.availableVersion));
-  card.append(node('p','',t(labels[data.state]||'updates.ready')));
-  if(data.notes)card.append(node('pre','whitespace-pre-wrap break-words',data.notes));
+function renderUpdates(force=false){
+  const root=byId('page');
+  const data=latestUpdate;
+  const signature=JSON.stringify([data,updateActionPending,reconnectTimedOut,language]);
+  if(!force&&signature===lastRenderedUpdateSignature&&currentPage==='updates')return;
+  lastRenderedUpdateSignature=signature;
+  root.replaceChildren();
+  if(!data){root.append(panel());return;}
+  const titles={idle:'updates.ready',disabled:'updates.disabled',checking:'updates.checking',upToDate:'updates.current',available:'updates.available',deferred:'updates.deferred',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.failed'};
+  const descriptions={idle:'updates.heroIdle',disabled:'updates.heroDisabled',checking:'updates.heroChecking',upToDate:'updates.heroCurrent',available:'updates.heroAvailable',deferred:'updates.heroAvailable',downloading:'updates.downloading',applying:'updates.applying',failed:'updates.heroFailed'};
+  const state=data.state||'idle';
+  const hero=node('div','update-hero');
+  const heroCopy=node('div','update-hero-copy');
+  const icon=node('div','update-icon',state==='upToDate'?'✓':state==='failed'?'!':'↻');icon.setAttribute('aria-hidden','true');
+  const message=node('div');
+  message.append(node('h2','',t(titles[state]||'updates.ready')),node('p','',t(descriptions[state]||'updates.heroIdle')));
+  if(data.availableVersion&&['available','deferred','downloading','applying'].includes(state)){
+    message.append(node('div','update-state',t('updates.availableVersion')+': '+data.availableVersion));
+  }
+  heroCopy.append(icon,message);
+  hero.append(heroCopy,updateButton(t(state==='failed'?'updates.retry':'updates.check'),'update_check'));
+  root.append(hero);
+
+  const layout=node('div','update-layout');
+  const versionCard=panel();versionCard.className+=' update-card';
+  versionCard.append(node('h3','',t('updates.details')));
+  versionCard.append(row(t('updates.installed'),data.currentVersion||'—'));
+  if(data.availableVersion)versionCard.append(row(t('updates.availableVersion'),data.availableVersion));
+  if(state==='downloading'){
+    const progress=node('progress','update-progress');progress.max=100;progress.value=data.progressPercent??0;
+    progress.setAttribute('aria-label',t('updates.download'));versionCard.append(progress,node('div','small',localeNumber(progress.value)+'%'));
+  }
+  if(data.notes)versionCard.append(node('pre','release-notes',data.notes));
   if(data.releaseUrl){
-    const link=node('a','link',t('updates.viewRelease'));
-    try{const url=new URL(data.releaseUrl);if(url.origin==='https://github.com'&&url.pathname.startsWith('/leobrqz/OpenRemoteControl/releases/tag/')){link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}}catch{}
+    try{
+      const url=new URL(data.releaseUrl);
+      if(url.origin==='https://github.com'&&url.pathname.startsWith('/leobrqz/OpenRemoteControl/releases/tag/')){
+        const link=node('a','text-link',t('updates.viewRelease'));link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';versionCard.append(link);
+      }
+    }catch{}
   }
-  if(data.state==='downloading'){
-    const progress=node('progress','progress progress-success w-full');progress.max=100;progress.value=data.progressPercent??0;
-    progress.setAttribute('aria-label',t('updates.download'));card.append(progress,node('span','',localeNumber(progress.value)+'%'));
+  if(data.error){
+    const failure=node('div','update-current error');failure.append(node('span','indicator bad'),node('span','',errorMessage(data.error.code,'error.update')));versionCard.append(failure);
   }
-  if(data.error)card.append(node('p','text-error',errorMessage(data.error.code,'error.update')));
-  const actions=node('div','actions');
-  actions.append(updateButton(t(data.state==='failed'?'updates.retry':'updates.check'),'update_check'));
-  if(data.state==='available')actions.append(updateButton(t('updates.update'),'update_install','primary'),updateButton(t('updates.defer'),'update_defer'));
+  const actions=node('div','update-actions');
+  if(state==='available')actions.append(updateButton(t('updates.update'),'update_install','primary'),updateButton(t('updates.defer'),'update_defer'));
   if(reconnectTimedOut){
-    card.append(node('p','text-error',t('updates.restartTimeout')));
+    versionCard.append(node('div','update-current error',t('updates.restartTimeout')));
     const retry=node('button','btn btn-sm btn-outline btn-neutral',t('updates.reconnect'));
     retry.onclick=()=>{reconnectTimedOut=false;void reconnect();};actions.append(retry);
   }
-  card.append(actions);return card;
+  if(actions.children.length)versionCard.append(actions);
+  layout.append(versionCard);
+
+  const how=panel();how.className+=' update-card';
+  how.append(node('h3','',t('updates.howItWorks')));
+  const current=node('div','update-current');
+  current.append(node('span','indicator '+(state==='failed'?'bad':'good')),node('span','',t(descriptions[state]||'updates.heroIdle')));
+  how.append(current,node('div','about-divider'),node('p','small',t('updates.howItWorksBody')));
+  if(state==='disabled')how.append(node('p','small',t('updates.disabled')));
+  layout.append(how);root.append(layout);
 }
 async function reconnect(){
   if(reconnectRunning||!reconnectTarget)return;
@@ -447,24 +599,31 @@ async function reconnect(){
     try{
       const response=await fetch('/api/updates',{cache:'no-store',signal:AbortSignal.timeout(Math.min(900,deadline-Date.now()))});
       if(response.ok){const data=await response.json();if(data.currentVersion===reconnectTarget){location.reload();return;}
-        if(data.state==='failed'){latestUpdate=data;reconnectTarget=null;reconnectRunning=false;if(currentPage==='about')renderAbout(latestState);return;}}
+        if(data.state==='failed'){latestUpdate=data;reconnectTarget=null;reconnectRunning=false;if(currentPage==='updates')renderUpdates();return;}}
     }catch{}
     const remaining=Math.min(nextPoll,deadline)-Date.now();
     if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
   }
   reconnectRunning=false;reconnectTimedOut=true;
-  if(currentPage==='about')renderAbout(latestState);
+  if(currentPage==='updates')renderUpdates();
 }
 function render(data,{languageChange=false,preserveNotice=false}={}){
+  const pageChanged=lastRenderedPage!==currentPage;
   latestState=data;
   byId('pageTitle').textContent=t('page.'+currentPage);
+  const description=byId('pageDescription');if(description)description.textContent=t(pageDescriptionKeys[currentPage]||'page.statusSubtitle');
   byId('appVersion').textContent=latestUpdate?.currentVersion?'v'+latestUpdate.currentVersion:'';
+  const headerStatus=byId('headerStatusLabel');if(headerStatus)headerStatus.textContent=t(data.running?'status.started':'status.stopped');
+  const headerDot=byId('headerStatusDot');if(headerDot){headerDot.classList.toggle('good',Boolean(data.running));headerDot.classList.toggle('bad',!data.running);}
+  syncUpdateBadge();
   if(currentPage!=='logs'&&logsOutput){logsGeneration++;logsOutput=null;logsHeading=null;logsLoadState='loading';}
   if(currentPage==='status')renderStatus(data);
   if(currentPage==='devices')renderDevices(data);
   if(currentPage==='network')renderNetwork(data);
   if(currentPage==='logs')renderLogs({refreshDiagnostics:!languageChange});
+  if(currentPage==='updates')renderUpdates(pageChanged||languageChange);
   if(currentPage==='about')renderAbout(data);
+  lastRenderedPage=currentPage;
   if(data.error)showError(data.errorCode,'error.status');
   else if((languageChange||preserveNotice)&&activeNotice)showError(activeNotice.code,activeNotice.fallback);
   else showNotice('');
@@ -475,6 +634,7 @@ async function refresh(){
     const [response,updates]=await Promise.all([fetch('/api/status',{cache:'no-store'}),fetch('/api/updates',{cache:'no-store'})]);
     if(!response.ok||!updates.ok)throw new Error('server unavailable');
     latestUpdate=await updates.json();
+    notifyUpdateState(latestUpdate);
     if(latestUpdate.state==='applying'&&!reconnectTimedOut){reconnectTarget=latestUpdate.availableVersion;void reconnect();}
     if(latestUpdate.state==='failed')reconnectTarget=null;
     render(await response.json());
@@ -484,15 +644,27 @@ function updateChrome(){
   document.documentElement.lang=language;
   document.title=t('title');
   byId('pageTitle').textContent=t('page.'+currentPage);
+  const eyebrow=byId('pageEyebrow');if(eyebrow)eyebrow.textContent=t('app.kicker');
+  const description=byId('pageDescription');if(description)description.textContent=t(pageDescriptionKeys[currentPage]||'page.statusSubtitle');
   byId('mainNav').setAttribute('aria-label',t('navigation'));
   byId('languageControls').setAttribute('aria-label',t('language.label'));
+  const workspace=byId('navWorkspace');if(workspace)workspace.textContent=t('nav.workspace');
+  const preferences=byId('navPreferences');if(preferences)preferences.textContent=t('nav.preferences');
   document.querySelectorAll('[data-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.language===language)));
   byId('copyLogs').textContent=t('copy');
   byId('copyLogs').setAttribute('aria-label',t('copy'));
-  document.querySelectorAll('[data-page]').forEach(item=>{item.textContent=t('page.'+item.dataset.page);});
+  document.querySelectorAll('[data-page]').forEach(item=>{
+    const label=item.querySelector?.('.nav-label');
+    if(label)label.textContent=t('page.'+item.dataset.page);else item.textContent=t('page.'+item.dataset.page);
+    item.setAttribute('aria-current',String(item.dataset.page===currentPage?'page':'false'));
+  });
+  const headerStatus=byId('headerStatusLabel');if(headerStatus)headerStatus.textContent=latestState?t(latestState.running?'status.started':'status.stopped'):t('status.connecting');
+  const headerDot=byId('headerStatusDot');if(headerDot){headerDot.classList.toggle('good',Boolean(latestState?.running));headerDot.classList.toggle('bad',Boolean(latestState&&!latestState.running));}
+  syncUpdateBadge();
 }
 function selectPage(){
   document.querySelectorAll('[data-page]').forEach(item=>item.classList.toggle('active',item.dataset.page===currentPage));
+  updateChrome();
   if(latestState)render(latestState);
 }
 function changeLanguage(value){
@@ -511,7 +683,7 @@ document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener
   currentPage=button.dataset.page;location.hash=currentPage;selectPage();
 }));
 window.addEventListener('hashchange',()=>{
-  currentPage=['status','devices','network','logs','about'].includes(location.hash.slice(1))?location.hash.slice(1):'status';
+  currentPage=['status','devices','network','logs','updates','about'].includes(location.hash.slice(1))?location.hash.slice(1):'status';
   selectPage();
 });
 selectPage();

@@ -28,7 +28,7 @@ async function dashboard(update,config={}){
     const label=language==='en-US'?'English':'Português (Brasil)';
     return Object.assign(new Element('button'),{dataset:{language},attributes:{'aria-label':label,title:label}});
   });
-  const pages=['status','devices','network','logs','about'].map(page=>Object.assign(new Element('button'),{dataset:{page}}));
+  const pages=['status','devices','network','logs','updates','about'].map(page=>Object.assign(new Element('button'),{dataset:{page}}));
   const requests=[];let reloads=0,current=update,now=0;
   class FakeDate extends Date{static now(){return now;}}
   const storage=config.storage??new Map();
@@ -161,7 +161,7 @@ test('dates and numeric counts follow the selected locale',async()=>{
   assert.ok(pageText(app).some(text=>text.includes(englishTime)));
 });
 
-test('live translations cover status, devices, network and updates but preserve user values and release notes',async()=>{
+test('live translations cover status, devices, network and updates while preserving release notes',async()=>{
   const app=await dashboard({...candidate,notes:'Keep this release note exactly as published.'});
   const state={running:true,discoveryRunning:true,port:47652,discoveryPort:47653,dashboardPort:47654,addresses:['192.168.1.20'],lastConnectionAddress:'192.168.1.45',requests:[],clients:[{id:'a',name:'Pixel',model:'Pixel 8',androidVersion:'14',connected:true}]};
   vm.runInContext('currentPage="status";render('+JSON.stringify(state)+')',app.context);
@@ -179,6 +179,8 @@ test('live translations cover status, devices, network and updates but preserve 
   assert.ok(pageText(app).some(text=>text.includes('tap Request connection')));
   setLanguage(app,'pt-BR');
   vm.runInContext('currentPage="about";render('+JSON.stringify(state)+')',app.context);
+  assert.ok(pageText(app).includes('GPL-3.0-only'));
+  vm.runInContext('currentPage="updates";render('+JSON.stringify(state)+')',app.context);
   assert.ok(pageText(app).includes('Keep this release note exactly as published.'));
   assert.ok(pageText(app).includes('Atualizar'));
   assert.ok(pageText(app).includes('Versão instalada'));
@@ -306,7 +308,8 @@ test('HTML keeps external JavaScript and exposes the language control in the sid
   const englishButton=languageButtonTags.find(button=>button.includes('data-language="en-US"'));
   assert.match(portugueseButton,/(?=.*aria-label="Português \(Brasil\)")(?=.*title="Português \(Brasil\)")(?=.*aria-pressed="false")/);
   assert.match(englishButton,/(?=.*aria-label="English")(?=.*title="English")(?=.*aria-pressed="true")/);
-  assert.equal((html.match(/<svg\b/g)||[]).length,2,'language buttons use inline SVG flags');
+  const languageControls=html.slice(html.indexOf('id="languageControls"'),html.indexOf('<div id="appVersion">'));
+  assert.equal((languageControls.match(/<svg\b/g)||[]).length,2,'language buttons use inline SVG flags');
   assert.match(html,/<span[^>]*aria-hidden="true"[^>]*>\s*\|\s*<\/span>/);
   const css=readFileSync(new URL('../src/dashboard.input.css',import.meta.url),'utf8');
   assert.doesNotMatch(css,/\.side-foot\{display:none/);
@@ -314,6 +317,7 @@ test('HTML keeps external JavaScript and exposes the language control in the sid
 
 test('update actions use an opaque candidate and only reconnect after the target version is active',async()=>{
   const app=await dashboard(candidate);
+  vm.runInContext('currentPage="updates";renderUpdates()',app.context);
   const nodes=all(app.elements.get('page'));
   assert.ok(nodes.some(item=>item.tag==='pre'&&item.textContent===candidate.notes));
   assert.ok(!nodes.some(item=>item.tag==='img'));

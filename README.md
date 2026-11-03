@@ -67,7 +67,7 @@ For dashboard development, start the Windows app and run `npm run dev` from `web
 
 Persistent connections use Iroh's free public infrastructure to find each other and, when a direct connection cannot be established, relay end-to-end encrypted traffic. These shared relays have rate limits and no uptime guarantee; operators can see connection metadata such as IP addresses. Local discovery remains available without the relay.
 
-Windows checks for updates after startup; approve downloading and restarting under **About > Updates** in the dashboard. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
+Windows checks for updates after startup; approve downloading and restarting on the dashboard's **Updates** page. From 0.2.1, stop the old server and extract the first managed ZIP into a new user-writable directory. Identity and paired phones are retained.
 Keep the managed directory in place: updates retain the executable path and its existing Windows Firewall authorization.
 
 Android checks for compatible updates on startup and in **About > Updates**. Downloads require approval, can continue in the background, and can be cancelled. Android asks for installation permission and confirmation; updating preserves saved PCs and settings. Google Play and a Google account are not required.

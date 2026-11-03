@@ -10,14 +10,22 @@
 </head>
 <body>
 <div class="shell">
-  <aside>
-    <div class="brand"><img class="brand-mark" src="/assets/mark.svg" alt="" width="25" height="25"><span>Open Remote</span></div>
+  <aside class="sidebar">
+    <a class="brand" href="#status" aria-label="Open Remote Control">
+      <img class="brand-mark" src="/assets/mark.svg" alt="" width="28" height="28">
+      <span>Open Remote</span>
+    </a>
+    <div id="navWorkspace" class="nav-caption">WORKSPACE</div>
     <nav id="mainNav" aria-label="Main navigation">
-      <button class="active" data-page="status">Status</button>
-      <button data-page="devices">Devices</button>
-      <button data-page="network">Network</button>
-      <button data-page="logs">Logs</button>
-      <button data-page="about">About</button>
+      <button class="active" data-page="status" aria-current="page" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h6V4H4zm10 8h6v-8h-6zm0-16v4h6V4zM4 20h6v-4H4z"/></svg><span class="nav-label">Status</span></button>
+      <button data-page="devices" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2m0 2v14h8V5zm3 12h2v1h-2z"/></svg><span class="nav-label">Devices</span></button>
+      <button data-page="network" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0-9 9h2a7 7 0 0 1 14 0h2a9 9 0 0 0-9-9m0 4a5 5 0 0 0-5 5h2a3 3 0 0 1 6 0h2a5 5 0 0 0-5-5m-1 7 1 7 2-7z"/></svg><span class="nav-label">Network</span></button>
+      <button data-page="logs" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg><span class="nav-label">Logs</span></button>
+    </nav>
+    <div id="navPreferences" class="nav-caption nav-caption-secondary">PREFERENCES</div>
+    <nav class="secondary-nav" aria-label="Preferences">
+      <button data-page="updates" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 0 7.75 10h-2.1A6 6 0 1 1 16 7.1L13 10h7V3l-2.55 2.55A7.96 7.96 0 0 0 12 4m-1 4v5l4 2.35 1-1.65-3-1.7V8z"/></svg><span class="nav-label">Updates</span><span id="updateBadge" class="nav-badge hidden">New</span></button>
+      <button data-page="about" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m-1-9h2v6h-2zm0-4h2v2h-2z"/></svg><span class="nav-label">About</span></button>
     </nav>
     <div class="side-foot">
       <div id="languageControls" class="language-control" role="group" aria-label="Language">
@@ -45,16 +53,23 @@
   </aside>
   <main>
     <header class="page-head">
-      <div class="head-actions"><button id="copyLogs" class="btn btn-sm btn-ghost">Copy diagnostics</button></div>
-      <div class="eyebrow">Open Remote Control</div>
-      <h1 id="pageTitle">Status</h1>
+      <div class="page-heading">
+        <div id="pageEyebrow" class="eyebrow">WINDOWS SERVER</div>
+        <h1 id="pageTitle">Status</h1>
+        <p id="pageDescription" class="page-description">Your Windows server at a glance.</p>
+      </div>
+      <div class="head-actions">
+        <div class="server-pill"><span id="headerStatusDot" class="indicator"></span><span id="headerStatusLabel">Connecting…</span></div>
+        <button id="copyLogs" class="btn btn-sm btn-ghost">Copy diagnostics</button>
+      </div>
     </header>
     <div class="content">
-      <div class="notice" id="notice" role="status" aria-live="polite"></div>
+      <div class="notice" id="notice" role="alert" aria-live="assertive"></div>
       <div id="page"></div>
     </div>
   </main>
 </div>
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 <script src="/assets/dashboard.js" defer></script>
 </body>
 </html>
