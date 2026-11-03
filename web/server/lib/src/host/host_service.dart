@@ -71,6 +71,7 @@ class RemoteHostService extends ChangeNotifier {
 
   static const int port = 47652;
   static const _privateKeyStorageKey = 'orc.host.signing-private.v1';
+  static const _persistentKeyStorageKey = 'orc.host.persistent-private.v1';
   static const _clientsStorageKey = HostClientRepository.storageKey;
 
   final FlutterSecureStorage _storage;
@@ -83,14 +84,15 @@ class RemoteHostService extends ChangeNotifier {
   late final HostDashboardServer _dashboard;
   final Map<String, HostClientRecord> _clients = {};
   final Map<String, _PendingPairingRequestState> _pendingPairingRequests = {};
-  final Map<String, Set<WebSocket>> _clientSockets = {};
-  final Set<WebSocket> _webSockets = {};
+  final Map<String, Set<ControlChannel>> _clientSockets = {};
+  final Set<ControlChannel> _webSockets = {};
   final Set<Future<void>> _controlSessions = {};
   final Set<String> _connectedClients = {};
 
   HttpServer? _server;
   StreamSubscription<HttpRequest>? _serverSubscription;
   RawDatagramSocket? _discoverySocket;
+  PersistentHostListener? _persistentListener;
   StreamSubscription<RawSocketEvent>? _discoverySubscription;
   SimpleKeyPair? _signingKey;
   Uint8List? _signingPublicKeyBytes;
@@ -135,6 +137,8 @@ class RemoteHostService extends ChangeNotifier {
       'signingPublicKey': encodeBytes(_signingPublicKeyBytes!),
       'pairingToken': token,
       'expiresAt': expiresAt.millisecondsSinceEpoch,
+      if (_persistentListener != null)
+        'remoteEndpoint': _persistentListener!.address,
     });
   }
 
@@ -162,6 +166,7 @@ class RemoteHostService extends ChangeNotifier {
     'port': port,
     'discoveryPort': localDiscoveryPort,
     'discoveryRunning': _discoverySocket != null,
+    'persistentAvailable': _persistentListener != null,
     'dashboardPort': dashboardPort,
     'pairingQrAvailable': pairingQrPayload != null,
     'pairingExpiresAt': _pairingExpiresAt?.toIso8601String(),
@@ -309,6 +314,34 @@ class RemoteHostService extends ChangeNotifier {
         'Windows',
         'Descoberta UDP ouvindo em 0.0.0.0:$localDiscoveryPort.',
       );
+      try {
+        final stored = await _storage.read(key: _persistentKeyStorageKey);
+        final secret = stored == null
+            ? secureRandomBytes(32)
+            : decodeBytes(stored, exactLength: 32);
+        if (stored == null) {
+          await _storage.write(
+            key: _persistentKeyStorageKey,
+            value: encodeBytes(secret),
+          );
+        }
+        final listener = await PersistentHostListener.bind(
+          secret,
+          _handlePersistentChannel,
+        );
+        if (_server == server) {
+          _persistentListener = listener;
+        } else {
+          await listener.close();
+        }
+      } catch (error, stackTrace) {
+        await DiagnosticLog.record(
+          'Windows',
+          'Persistent transport could not start.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
       await createPairingCode();
       _notifyListeners();
     } catch (error, stackTrace) {
@@ -349,6 +382,9 @@ class RemoteHostService extends ChangeNotifier {
     _discoverySocket = null;
     final server = _server;
     _server = null;
+    final persistent = _persistentListener;
+    _persistentListener = null;
+    await persistent?.close();
     await Future.wait(
       _webSockets.map((socket) => socket.close(WebSocketStatus.goingAway)),
     );
@@ -405,7 +441,7 @@ class RemoteHostService extends ChangeNotifier {
 
   Future<void> revokeClient(String clientId) async {
     _clients.remove(clientId);
-    final sockets = _clientSockets.remove(clientId) ?? <WebSocket>{};
+    final sockets = _clientSockets.remove(clientId) ?? <ControlChannel>{};
     _connectedClients.remove(clientId);
     await _saveClients();
     await Future.wait(
@@ -488,9 +524,10 @@ class RemoteHostService extends ChangeNotifier {
       _lastConnectionAddress = remoteAddress;
       _lastConnectionAt = DateTime.now();
       _notifyListeners();
-      final socket = await WebSocketTransformer.upgrade(request);
+      final webSocket = await WebSocketTransformer.upgrade(request);
+      webSocket.pingInterval = const Duration(seconds: 25);
+      final socket = WebSocketControlChannel(webSocket);
       _webSockets.add(socket);
-      socket.pingInterval = const Duration(seconds: 25);
       final session = _handleSocket(socket, remoteAddress: remoteAddress);
       _controlSessions.add(session);
       try {
@@ -512,8 +549,21 @@ class RemoteHostService extends ChangeNotifier {
     }
   }
 
+  Future<void> _handlePersistentChannel(ControlChannel socket) async {
+    if (_server == null) return;
+    _webSockets.add(socket);
+    final session = _handleSocket(socket, remoteAddress: 'Persistent');
+    _controlSessions.add(session);
+    try {
+      await session;
+    } finally {
+      _controlSessions.remove(session);
+      _webSockets.remove(socket);
+    }
+  }
+
   Future<void> _handleSocket(
-    WebSocket socket, {
+    ControlChannel socket, {
     required String remoteAddress,
   }) async {
     String? authenticatedClientId;
@@ -591,6 +641,12 @@ class RemoteHostService extends ChangeNotifier {
       phase = 'autorização';
       late final _AuthorizedClient paired;
       try {
+        if (remoteAddress == 'Persistent' && auth['mode'] == 'request_pair') {
+          throw const HostRequestError(
+            'invalid_authorization',
+            'Persistent pairing requires a QR code.',
+          );
+        }
         paired = await _authorize(auth, remoteAddress: remoteAddress);
       } catch (error) {
         socket.add(
@@ -614,7 +670,7 @@ class RemoteHostService extends ChangeNotifier {
         'Cliente autorizado (${paired.clientId}) em $remoteAddress.',
       );
       _clientSockets
-          .putIfAbsent(paired.clientId, () => <WebSocket>{})
+          .putIfAbsent(paired.clientId, () => <ControlChannel>{})
           .add(socket);
       _connectedClients.add(paired.clientId);
       _notifyListeners();
@@ -632,9 +688,9 @@ class RemoteHostService extends ChangeNotifier {
       // Every server message shares the same encrypted sequence, even when
       // independent publishers detect changes at the same time.
       final sender = OrderedSender((message) async {
-        if (socket.readyState != WebSocket.open) return;
+        if (!socket.isOpen) return;
         final frame = await session.encrypt(message);
-        if (socket.readyState != WebSocket.open) return;
+        if (!socket.isOpen) return;
         socket.add(jsonEncode(frame));
       });
 

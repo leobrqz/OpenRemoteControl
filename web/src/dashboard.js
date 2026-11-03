@@ -8,6 +8,7 @@ const translations={
     'section.clients':'Authorized phones','section.connections':'Connections','section.local':'Local connection','section.logs':'Server activity',
     'section.about':'About','section.project':'Project','section.development':'Development','section.updates':'Updates',
     'pair.title':'Connect with QR code','pair.description':'Scan this code in the Android app to pair your phone.',
+    'pair.remoteReady':'Remote access uses Iroh public relays when needed.','pair.remoteUnavailable':'Remote access unavailable; this code works on the local network.',
     'pair.start':'Start the server to create a QR code.','pair.valid':'Valid until {time}','pair.new':'Generate a new QR code',
     'pair.expired':'The QR code has expired. Generate another to pair.','pair.generate':'Generate QR code','pair.alt':'QR code to pair the Android app',
     'status.started':'Server running','status.stopped':'Server stopped','status.wifi':'Wi-Fi connection','status.listening':'Listening on all interfaces',
@@ -21,7 +22,7 @@ const translations={
     'network.wifiControl':'Wi-Fi control','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.addresses':'This PC addresses',
     'network.noIpv4':'No local IPv4 address','network.dashboard':'Dashboard on this PC',
     'network.instruction':'To connect on the same Wi-Fi network, open the Android app and tap Request connection.',
-    'network.help':'If discovery does not find the PC, open Devices and scan the QR code with the Android app. The QR code uses local network addresses; to connect from another network, a relay or a public route to the PC is required.',
+    'network.help':'Scan the QR code in Devices to save a persistent connection that can also work from another network.',
     'logs.loading':'Loading diagnostics…','logs.error':'Could not load diagnostics. Check that the server is running, then try again.',
     'about.application':'Application','about.server':'Server','about.license':'License','about.log':'Log file',
     'about.website':'Official website','about.personalWebsite':'Personal website','about.personalGithub':'Personal GitHub','about.author':'Leonardo Briquezi aka devpatok',
@@ -78,6 +79,7 @@ const translations={
     'section.clients':'Celulares autorizados','section.connections':'Conexões','section.local':'Conexão local','section.logs':'Atividade do servidor',
     'section.about':'Sobre','section.project':'Projeto','section.development':'Desenvolvimento','section.updates':'Atualizações',
     'pair.title':'Conectar pelo QR code','pair.description':'Escaneie este código no app Android para parear o celular.',
+    'pair.remoteReady':'O acesso remoto usa servidores públicos do Iroh quando necessário.','pair.remoteUnavailable':'Acesso remoto indisponível; o código funciona na rede local.',
     'pair.start':'Inicie o servidor para gerar um QR code.','pair.valid':'Válido até {time}','pair.new':'Gerar novo QR code',
     'pair.expired':'O QR code expirou. Gere outro para parear.','pair.generate':'Gerar QR code','pair.alt':'QR code para parear o app Android',
     'status.started':'Servidor iniciado','status.stopped':'Servidor parado','status.wifi':'Conexão Wi-Fi','status.listening':'Ouvindo em todas as interfaces',
@@ -91,7 +93,7 @@ const translations={
     'network.wifiControl':'Controle Wi-Fi','network.tcp':'TCP {port}','network.udp':'UDP {port}','network.addresses':'Endereços deste PC',
     'network.noIpv4':'Nenhum endereço IPv4 local','network.dashboard':'Painel neste computador',
     'network.instruction':'Para conectar na mesma rede Wi-Fi, abra o app Android e toque em Solicitar conexão.',
-    'network.help':'Se a descoberta não encontrar o PC, abra Dispositivos e escaneie o QR code com o app Android. O QR code usa endereços da rede local; para conectar de outra rede, é necessário um servidor intermediário ou uma rota pública até o PC.',
+    'network.help':'Escaneie o QR code em Dispositivos para salvar uma conexão persistente, que também pode funcionar em outra rede.',
     'logs.loading':'Carregando diagnóstico…','logs.error':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.',
     'about.application':'Aplicativo','about.server':'Servidor','about.license':'Licença','about.log':'Arquivo de log',
     'about.website':'Site oficial','about.personalWebsite':'Site pessoal','about.personalGithub':'GitHub pessoal','about.author':'Leonardo Briquezi aka devpatok',
@@ -233,6 +235,7 @@ function renderPairing(data){
     pairingQr=null;pairingQrUrl=null;
     details.append(node('div','empty',t('pair.start')));
   }else if(data.pairingQrAvailable&&data.pairingExpiresAt){
+    details.append(node('div','device-detail',t(data.persistentAvailable?'pair.remoteReady':'pair.remoteUnavailable')));
     const expires=new Date(data.pairingExpiresAt).toLocaleTimeString(language,{hour:'2-digit',minute:'2-digit'});
     details.append(node('div','device-detail',t('pair.valid',{time:expires})));
     details.append(makeAction(t('pair.new'),'new_pairing_code'));
