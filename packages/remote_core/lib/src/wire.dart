@@ -87,6 +87,7 @@ class PairingInfo {
     required this.signingPublicKey,
     required this.pairingToken,
     required this.expiresAt,
+    this.remoteEndpoint,
   });
 
   final String serverId;
@@ -95,6 +96,7 @@ class PairingInfo {
   final String signingPublicKey;
   final String pairingToken;
   final DateTime expiresAt;
+  final String? remoteEndpoint;
 
   String toQrPayload() => jsonEncode({
     'type': 'open-remote-pairing',
@@ -105,6 +107,7 @@ class PairingInfo {
     'signingPublicKey': signingPublicKey,
     'pairingToken': pairingToken,
     'expiresAt': expiresAt.millisecondsSinceEpoch,
+    if (remoteEndpoint != null) 'remoteEndpoint': remoteEndpoint,
   });
 
   factory PairingInfo.fromQr(String rawValue) {
@@ -123,6 +126,7 @@ class PairingInfo {
     final serverId = decoded['serverId'];
     final publicKey = decoded['signingPublicKey'];
     final pairingToken = decoded['pairingToken'];
+    final remoteEndpoint = decoded['remoteEndpoint'];
     if (rawAddresses is! List ||
         rawAddresses.isEmpty ||
         rawAddresses.length > 8 ||
@@ -141,6 +145,7 @@ class PairingInfo {
     }
     decodeBytes(publicKey, exactLength: 32);
     decodeBytes(pairingToken, exactLength: 32);
+    if (remoteEndpoint != null) decodeBytes(remoteEndpoint, exactLength: 32);
     return PairingInfo(
       serverId: serverId,
       addresses: List<String>.unmodifiable(rawAddresses.cast<String>()),
@@ -148,6 +153,7 @@ class PairingInfo {
       signingPublicKey: publicKey,
       pairingToken: pairingToken,
       expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAt),
+      remoteEndpoint: remoteEndpoint as String?,
     );
   }
 }

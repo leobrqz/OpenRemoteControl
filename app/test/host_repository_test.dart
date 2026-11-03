@@ -80,6 +80,33 @@ void main() {
     expect((await repository.loadManualEndpoint())!['address'], '192.168.1.7');
   });
 
+  test(
+    'preserves a remote endpoint when a known PC reconnects locally',
+    () async {
+      final repository = SecureHostRepository();
+      final endpoint = encodeBytes(List<int>.filled(32, 7));
+      await repository.saveProfile({
+        ...profile('pc'),
+        'remoteEndpoint': endpoint,
+      });
+      await repository.saveProfile(profile('pc'));
+      expect(
+        (await repository.loadSavedHosts()).single.remoteEndpoint,
+        endpoint,
+      );
+      expect(
+        (await repository.readProfiles())['pc']!['clientToken'],
+        'saved-token',
+      );
+
+      await repository.saveProfile({
+        ...profile('pc'),
+        'signingPublicKey': encodeBytes(List<int>.filled(32, 2)),
+      });
+      expect((await repository.loadSavedHosts()).single.remoteEndpoint, isNull);
+    },
+  );
+
   test('malformed stored data falls back to an empty host list', () async {
     FlutterSecureStorage.setMockInitialValues({
       'orc.client.hosts.v1': '{',

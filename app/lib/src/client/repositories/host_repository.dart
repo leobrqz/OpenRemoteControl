@@ -69,6 +69,16 @@ class SecureHostRepository implements HostRepository {
             .toList(growable: false);
         if (addresses.isEmpty) continue;
         decodeBytes(row['signingPublicKey'], exactLength: 32);
+        String? remoteEndpoint;
+        try {
+          final value = row['remoteEndpoint'];
+          if (value != null) {
+            decodeBytes(value, exactLength: 32);
+            remoteEndpoint = value as String;
+          }
+        } on FormatException {
+          // Keep existing LAN access if a saved remote address is invalid.
+        }
         result.add(
           SavedHost(
             serverId: row['serverId'] as String,
@@ -76,6 +86,7 @@ class SecureHostRepository implements HostRepository {
             addresses: addresses,
             port: row['port'] as int,
             signingPublicKey: row['signingPublicKey'] as String,
+            remoteEndpoint: remoteEndpoint,
           ),
         );
       }
@@ -108,7 +119,15 @@ class SecureHostRepository implements HostRepository {
   @override
   Future<void> saveProfile(Map<String, Object?> profile) async {
     final profiles = await readProfiles();
-    profiles[profile['serverId']! as String] = profile;
+    final serverId = profile['serverId']! as String;
+    final previous = profiles[serverId];
+    profiles[serverId] = {
+      ...profile,
+      if (profile['remoteEndpoint'] == null &&
+          previous?['signingPublicKey'] == profile['signingPublicKey'] &&
+          previous?['remoteEndpoint'] != null)
+        'remoteEndpoint': previous!['remoteEndpoint'],
+    };
     await writeProfiles(profiles);
   }
 
