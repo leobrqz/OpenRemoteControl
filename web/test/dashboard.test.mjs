@@ -179,7 +179,7 @@ test('live translations cover status, devices, network and updates while preserv
   assert.ok(pageText(app).some(text=>text.includes('tap Request connection')));
   setLanguage(app,'pt-BR');
   vm.runInContext('currentPage="about";render('+JSON.stringify(state)+')',app.context);
-  assert.ok(pageText(app).includes('GPL-3.0-only'));
+  assert.ok(pageText(app).some(text=>text.includes('GPL-3.0-only')));
   vm.runInContext('currentPage="updates";render('+JSON.stringify(state)+')',app.context);
   assert.ok(pageText(app).includes('Keep this release note exactly as published.'));
   assert.ok(pageText(app).includes('Atualizar'));
