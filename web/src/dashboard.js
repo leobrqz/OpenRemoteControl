@@ -5,6 +5,7 @@ const translations={
     'page.status':'Status','page.devices':'Devices','page.network':'Network','page.logs':'Logs','page.updates':'Updates','page.about':'About',
     'page.statusSubtitle':'Your Windows server at a glance.','page.devicesSubtitle':'Pair phones and manage who can control this PC.','page.networkSubtitle':'Local addresses and connection details for this PC.','page.logsSubtitle':'Recent log entries and where the files are stored.','page.updatesSubtitle':'See what is new and choose when to install it.','page.aboutSubtitle':'Project links, license, and development credits.',
     'nav.workspace':'WORKSPACE','nav.preferences':'PREFERENCES',
+    'copy':'Copy diagnostics','copy.done':'Copied',
     'section.server':'Server status','section.deviceSummary':'Devices','section.pair':'Pair a phone','section.requests':'Connection requests',
     'section.clients':'Authorized phones','section.connections':'Connections','section.local':'Local connection','section.logs':'Server activity',
     'section.about':'About','section.project':'Project','section.development':'Development','section.updates':'Updates',
@@ -41,7 +42,7 @@ const translations={
     'updates.heroAvailable':'A new version is ready. Review the notes and install when you are ready.','updates.heroCurrent':'This server is up to date.','updates.heroChecking':'Checking the latest release…','updates.heroIdle':'Check for a newer version of Open Remote Control.','updates.heroDisabled':'This installation cannot update from the dashboard.','updates.heroFailed':'The update could not be completed. Review the error and try again.','updates.notificationTitle':'Update available','updates.notificationBody':'Version {version} is ready to install.','updates.notificationAction':'View update','updates.currentTitle':'You are up to date','updates.currentBody':'This server is already using the latest version.','updates.dismiss':'Dismiss notification','updates.details':'Version details','updates.howItWorks':'You stay in control','updates.howItWorksBody':'The server checks for updates automatically. Installing one always requires your confirmation.','updates.readyLabel':'Ready','updates.availableLabel':'Available','updates.latestLabel':'Latest version','updates.installedLabel':'Installed version',
     'error.action':'The action could not be completed. Try again.','error.updateAction':'The update action could not be completed. Try again.',
     'error.status':'The server reported a problem. Check the server diagnostics.','error.update':'The update could not be completed. Check again or try later.',
-    'error.connection':'Could not reach the server. Check that it is running and try again.',
+    'error.connection':'Could not reach the server. Check that it is running and try again.','error.copy':'Could not copy diagnostics. Check browser clipboard access.',
     'error.logs':'Could not load diagnostics. Check that the server is running, then try again.',
     'error.code.invalid_origin':'This dashboard request was rejected. Open the dashboard from this PC.',
     'error.code.invalid_action':'That action is not available. Refresh the dashboard and try again.',
@@ -80,6 +81,7 @@ const translations={
     'page.status':'Status','page.devices':'Dispositivos','page.network':'Rede','page.logs':'Logs','page.updates':'Atualizações','page.about':'Sobre',
     'page.statusSubtitle':'Uma visão geral do servidor Windows.','page.devicesSubtitle':'Pareie celulares e gerencie quem pode controlar este PC.','page.networkSubtitle':'Endereços locais e detalhes de conexão deste computador.','page.logsSubtitle':'Entradas recentes e a pasta onde os arquivos são salvos.','page.updatesSubtitle':'Confira as novidades e escolha quando instalar.','page.aboutSubtitle':'Links do projeto, licença e créditos de desenvolvimento.',
     'nav.workspace':'ESPAÇO DE TRABALHO','nav.preferences':'PREFERÊNCIAS',
+    'copy':'Copiar diagnóstico','copy.done':'Copiado',
     'section.server':'Estado do servidor','section.deviceSummary':'Dispositivos','section.pair':'Parear celular','section.requests':'Pedidos de conexão',
     'section.clients':'Celulares autorizados','section.connections':'Conexões','section.local':'Conexão local','section.logs':'Atividade do servidor',
     'section.about':'Sobre','section.project':'Projeto','section.development':'Desenvolvimento','section.updates':'Atualizações',
@@ -116,7 +118,7 @@ const translations={
     'updates.heroAvailable':'Uma nova versão está pronta. Confira as novidades e instale quando quiser.','updates.heroCurrent':'Este servidor está atualizado.','updates.heroChecking':'Verificando a versão mais recente…','updates.heroIdle':'Verifique se há uma nova versão do Open Remote Control.','updates.heroDisabled':'Esta instalação não pode ser atualizada pelo painel.','updates.heroFailed':'Não foi possível concluir a atualização. Confira o erro e tente novamente.','updates.notificationTitle':'Atualização disponível','updates.notificationBody':'A versão {version} está pronta para instalar.','updates.notificationAction':'Ver atualização','updates.currentTitle':'Você está atualizado','updates.currentBody':'Este servidor já está na versão mais recente.','updates.dismiss':'Dispensar notificação','updates.details':'Detalhes da versão','updates.howItWorks':'Você decide','updates.howItWorksBody':'O servidor verifica atualizações automaticamente. A instalação sempre depende da sua confirmação.','updates.readyLabel':'Pronta','updates.availableLabel':'Disponível','updates.latestLabel':'Versão mais recente','updates.installedLabel':'Versão instalada',
     'error.action':'Não foi possível concluir a ação. Tente novamente.','error.updateAction':'Não foi possível concluir a ação de atualização. Tente novamente.',
     'error.status':'O servidor informou um problema. Confira os diagnósticos do servidor.','error.update':'Não foi possível concluir a atualização. Verifique novamente ou tente mais tarde.',
-    'error.connection':'Não foi possível acessar o servidor. Confira se ele está ativo e tente novamente.',
+    'error.connection':'Não foi possível acessar o servidor. Confira se ele está ativo e tente novamente.','error.copy':'Não foi possível copiar os diagnósticos. Confira o acesso à área de transferência do navegador.',
     'error.logs':'Não foi possível carregar o diagnóstico. Confira se o servidor está ativo e tente novamente.',
     'error.code.invalid_origin':'A solicitação ao painel foi recusada. Abra o painel neste computador.',
     'error.code.invalid_action':'Essa ação não está disponível. Atualize o painel e tente novamente.',
@@ -610,8 +612,6 @@ function render(data,{languageChange=false,preserveNotice=false}={}){
   byId('pageTitle').textContent=t('page.'+currentPage);
   const description=byId('pageDescription');if(description)description.textContent=t(pageDescriptionKeys[currentPage]||'page.statusSubtitle');
   byId('appVersion').textContent=latestUpdate?.currentVersion?'v'+latestUpdate.currentVersion:'';
-  const headerStatus=byId('headerStatusLabel');if(headerStatus)headerStatus.textContent=t(data.running?'status.started':'status.stopped');
-  const headerDot=byId('headerStatusDot');if(headerDot){headerDot.classList.toggle('good',Boolean(data.running));headerDot.classList.toggle('bad',!data.running);}
   syncUpdateBadge();
   if(currentPage!=='logs'&&logsOutput){logsGeneration++;logsOutput=null;logsHeading=null;logsPathLabel=null;logsPathValue=null;logsLoadState='loading';}
   if(currentPage==='status')renderStatus(data);
@@ -647,14 +647,13 @@ function updateChrome(){
   byId('languageControls').setAttribute('aria-label',t('language.label'));
   const workspace=byId('navWorkspace');if(workspace)workspace.textContent=t('nav.workspace');
   const preferences=byId('navPreferences');if(preferences)preferences.textContent=t('nav.preferences');
+  const copyLogs=byId('copyLogs');if(copyLogs){copyLogs.textContent=t('copy');copyLogs.setAttribute('aria-label',t('copy'));}
   document.querySelectorAll('[data-language]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.language===language)));
   document.querySelectorAll('[data-page]').forEach(item=>{
     const label=item.querySelector?.('.nav-label');
     if(label)label.textContent=t('page.'+item.dataset.page);else item.textContent=t('page.'+item.dataset.page);
     item.setAttribute('aria-current',String(item.dataset.page===currentPage?'page':'false'));
   });
-  const headerStatus=byId('headerStatusLabel');if(headerStatus)headerStatus.textContent=latestState?t(latestState.running?'status.started':'status.stopped'):t('status.connecting');
-  const headerDot=byId('headerStatusDot');if(headerDot){headerDot.classList.toggle('good',Boolean(latestState?.running));headerDot.classList.toggle('bad',Boolean(latestState&&!latestState.running));}
   syncUpdateBadge();
 }
 function selectPage(){
@@ -682,4 +681,14 @@ window.addEventListener('hashchange',()=>{
   selectPage();
 });
 selectPage();
+byId('copyLogs').onclick=async event=>{
+  const button=event.currentTarget;
+  try{
+    const response=await fetch('/api/diagnostics',{cache:'no-store'});
+    if(!response.ok)throw new Error('diagnostics unavailable');
+    const text=await response.text();await navigator.clipboard.writeText(text);
+    button.textContent=t('copy.done');button.setAttribute('aria-label',t('copy.done'));
+    setTimeout(()=>{button.textContent=t('copy');button.setAttribute('aria-label',t('copy'));},1600);
+  }catch{showError(null,'error.copy');}
+};
 refresh();setInterval(refresh,1000);

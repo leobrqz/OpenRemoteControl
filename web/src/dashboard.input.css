@@ -74,7 +74,6 @@ main { min-width: 0; }
 h1 { margin: 7px 0 4px; color: var(--ink); font-size: clamp(27px, 3vw, 34px); font-weight: 650; letter-spacing: -.045em; line-height: 1.08; overflow-wrap: anywhere; }
 .page-description { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 0 0 auto; }
-.server-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #526058; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .indicator { width: 8px; height: 8px; border-radius: 50%; background: #aab4ad; }
 .indicator.good { background: #39935b; }
 .indicator.bad { background: #ca5b56; }
@@ -218,7 +217,7 @@ p { line-height: 1.55; }
   .page-head { position: static; min-height: 0; align-items: flex-start; padding: 21px 18px 18px; }
   .page-description { max-width: 46ch; font-size: 12px; }
   .head-actions { gap: 7px; flex-direction: column-reverse; align-items: flex-end; }
-  .server-pill { padding: 6px 8px; font-size: 10px; }
+  #copyLogs { min-height: 30px; padding: 5px 7px; font-size: 10px; }
   .content { padding: 20px 16px 40px; }
   #page { gap: 21px; }
   .section > h2 { margin-bottom: 10px; font-size: 15px; }

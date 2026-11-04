@@ -23,7 +23,7 @@ const all=root=>[root,...root.children.flatMap(all)];
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
 async function dashboard(update,config={}){
-  const elements=new Map(['page','pageTitle','notice','appVersion','mainNav','languageControls'].map(id=>[id,new Element(id)]));
+  const elements=new Map(['page','pageTitle','notice','copyLogs','appVersion','mainNav','languageControls'].map(id=>[id,new Element(id)]));
   const languageButtons=['en-US','pt-BR'].map(language=>{
     const label=language==='en-US'?'English':'Português (Brasil)';
     return Object.assign(new Element('button'),{dataset:{language},attributes:{'aria-label':label,title:label}});
@@ -70,7 +70,7 @@ test('defaults to en-US and renders the static shell in English',async()=>{
   assert.deepEqual(app.languageButtons.map(button=>button.attributes['aria-pressed']),['true','false']);
   assert.equal(app.elements.get('pageTitle').textContent,'About');
   assert.equal(app.elements.get('mainNav').attributes['aria-label'],'Main navigation');
-  assert.equal(app.elements.has('copyLogs'),false);
+  assert.equal(app.elements.get('copyLogs').textContent,'Copy diagnostics');
 });
 
 test('only en-US and pt-BR catalogs exist and every entry is readable and paired',async()=>{
@@ -269,7 +269,7 @@ test('stable error codes use localized copy; unknown raw errors use translated f
   assert.equal(unknown.elements.get('notice').textContent,'Não foi possível concluir a ação. Tente novamente.');
 });
 
-test('logs show their folder and keep diagnostic text unchanged across language changes',async()=>{
+test('logs show their folder and copy diagnostics is localized',async()=>{
   const app=await dashboard(candidate,{status:{running:true,logPath:'C:\\ProgramData\\OpenRemoteControl\\logs\\open-remote.log'},diagnostics:async()=>({ok:true,text:async()=>'ERROR: unchanged source diagnostic'})});
   app.pages.find(item=>item.dataset.page==='logs').click();await flush();
   const output=all(app.elements.get('page')).find(item=>item.tag==='pre');
@@ -277,6 +277,8 @@ test('logs show their folder and keep diagnostic text unchanged across language 
   assert.ok(pageText(app).includes('C:\\ProgramData\\OpenRemoteControl\\logs'));
   setLanguage(app,'pt-BR');
   assert.equal(output.textContent,'ERROR: unchanged source diagnostic');
+  assert.equal(app.elements.get('copyLogs').textContent,'Copiar diagnóstico');
+  assert.equal(app.elements.get('copyLogs').attributes['aria-label'],'Copiar diagnóstico');
 });
 
 test('about page keeps safe official project and author links',async()=>{
@@ -295,7 +297,8 @@ test('about page keeps safe official project and author links',async()=>{
 
 test('HTML keeps external JavaScript and exposes the language control in the sidebar',()=>{
   const html=readFileSync(new URL('../src/index.html',import.meta.url),'utf8');
-  assert.doesNotMatch(html,/id="copyLogs"/);
+  assert.match(html,/id="copyLogs"/);
+  assert.doesNotMatch(html,/server-pill|headerStatusLabel|headerStatusDot/);
   assert.match(html,/<html lang="en-US">/);
   assert.match(html,/<script src="\/assets\/dashboard.js" defer><\/script>/);
   assert.equal((html.match(/<script/g)||[]).length,1);
