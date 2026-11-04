@@ -318,7 +318,7 @@ packages:
       path: "../../packages/remote_core"
       relative: true
     source: path
-    version: "0.7.1"
+    version: "0.7.2"
   package_config:
     dependency: transitive
     description:
